@@ -418,6 +418,7 @@ let memos = [
 ];
 let memoCats = JSON.parse(JSON.stringify(DEFAULT_CATS));
 let nextCatId = 100;
+var activeMemoFilter = null;
 let activeCat = "all";
 let selectedMemoCatId = null;
 let currentUser = null;
@@ -874,6 +875,7 @@ function renderMemos() {
     delBtn.textContent = "✕";
     delBtn.addEventListener("click", function(){
       if (!isLoggedIn()) { alert("로그인 후 이용할 수 있어요!"); return; }
+      if (!confirm("이 메모를 삭제할까요?")) return;
       memos = memos.filter(function(x){ return x.id !== m.id; });
       fbSaveAll("memos", memos);
       renderMemoFilter();
