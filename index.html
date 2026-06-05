@@ -158,7 +158,7 @@ textarea.field{resize:vertical}
     <div id="grid"></div>
   </div>
   <div id="divider"><div id="divider-line"></div></div>
-  <div id="right" style="width:${localStorage.getItem('rightWidth')||380}px">
+  <div id="right" style="width:380px">
     <!-- MEMO SECTION -->
     <div class="section-head"><span class="section-title">메모</span></div>
     <div class="form-box">
@@ -224,7 +224,7 @@ textarea.field{resize:vertical}
     <input type="file" id="img-file-input" accept="image/*" style="display:none"/>
     <input class="field" id="card-name" placeholder="장소 이름" style="margin-bottom:8px"/>
     <textarea class="field" id="card-note" placeholder="기대평" rows="2" style="margin-bottom:8px"></textarea>
-    <input class="field" id="card-map-link" placeholder="📍맵 링크" style="margin-bottom:8px"/>
+    <input class="field" id="card-map-link" placeholder="📍 맵 링크" style="margin-bottom:8px"/>
     <input class="field" id="card-link" placeholder="🔗 관련 링크 (블로그 등)" style="margin-bottom:10px"/>
     <div style="margin-bottom:16px">
       <div style="font-size:12px;color:#aaa;margin-bottom:6px">별점 (선택)</div>
@@ -984,6 +984,8 @@ function hexBg(hex){
 // INIT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function init(){
+  const saved = localStorage.getItem('rightWidth');
+  if (saved) document.getElementById('right').style.width = saved + 'px';
   const [c,m,mc]=await Promise.all([fbLoad('cards'),fbLoad('memos'),fbLoad('memoCats')]);
   if(c&&c.length) cards=c;
   if(m&&m.length) memos=m;
