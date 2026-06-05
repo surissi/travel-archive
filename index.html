@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>내 여행 컬렉션</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:#fff;color:#111}
+button{font-family:inherit;cursor:pointer}
+a{text-decoration:none}
+#loading{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999}
+.spin{width:28px;height:28px;border:3px solid #eee;border-top-color:#111;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* scrollbars */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#e0e0e0;border-radius:2px}
+/* header */
+#header{border-bottom:1px solid #e8e8e8;position:sticky;top:0;background:#fff;z-index:100}
+#header-row{padding:18px 24px 0;display:flex;align-items:center;justify-content:space-between}
+#app-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.add-btn{background:#111;color:#fff;border:none;border-radius:6px;padding:7px 15px;font-size:13px;font-weight:500}
+.add-btn:hover{opacity:.75}
+#tabs{padding:0 24px;display:flex;margin-top:14px}
+.tab-btn{padding:9px 14px;background:none;border:none;border-bottom:2px solid transparent;font-size:13px;font-weight:500;color:#aaa;transition:color .15s}
+.tab-btn.active{color:#111;border-bottom-color:#111}
+/* split */
+#split{display:flex;height:calc(100vh - 91px);overflow:hidden}
+#left{flex:1 1 0;overflow-y:auto;overflow-x:visible;padding:22px 28px}
+#divider{width:9px;flex-shrink:0;cursor:col-resize;display:flex;align-items:stretch;justify-content:center;z-index:10}
+#divider-line{width:1px;background:#e8e8e8;transition:background .15s}
+#divider:hover #divider-line{background:#999}
+#right{overflow-y:auto;padding:22px 20px;flex-shrink:0}
+/* grid */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:16px;padding-bottom:8px}
+.empty{text-align:center;color:#ccc;font-size:13px;padding:50px 0}
+/* card */
+.card{border-radius:12px;border:1px solid #ebebeb;overflow:visible;background:#fff;cursor:pointer;transition:box-shadow .2s,transform .2s}
+.card:hover{box-shadow:0 4px 20px rgba(0,0,0,.1);transform:translateY(-2px)}
+.card-img{height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f5f5f5;position:relative;border-radius:12px 12px 0 0}
+.card-img img{width:100%;height:100%;object-fit:cover}
+.card-icon{font-size:30px;opacity:.25}
+.card-body{padding:12px 14px 18px}
+.card-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.card-tag{font-size:11px;color:#aaa;font-weight:500;letter-spacing:.02em}
+.card-name{font-size:14px;font-weight:600;color:#111;margin-bottom:5px;line-height:1.4}
+.card-note{font-size:12px;color:#999;line-height:1.55}
+.del-btn{background:none;border:none;color:#ccc;font-size:11px;padding:0;flex-shrink:0}
+.del-btn:hover{color:#999}
+/* hearts */
+.hearts{display:flex;gap:3px;margin-top:6px;padding-bottom:6px}
+.heart-wrap{display:block;transition:transform .12s;line-height:1}
+.heart-wrap:hover{transform:scale(1.2)}
+/* section */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e8e8e8}
+.section-title{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+/* form */
+.form-box{background:#fafafa;border:1px solid #ebebeb;border-radius:10px;padding:13px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px}
+.cat-trigger{width:100%;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e0e0e0;border-radius:7px;padding:8px 12px;text-align:left}
+.cat-trigger:hover{opacity:.8}
+.dot-sm{width:9px;height:9px;border-radius:50%;flex-shrink:0;display:inline-block}
+.pencil-btn{width:34px;height:34px;border-radius:7px;border:1px solid #e0e0e0;background:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pencil-btn:hover{background:#f0f0f0}
+.dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e8e8e8;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.1);z-index:300;max-height:260px;overflow-y:auto}
+.drop-header{padding:10px 14px 6px;font-size:11px;font-weight:600;color:#aaa;letter-spacing:.04em;text-transform:uppercase}
+.drop-item{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px;color:#333}
+.drop-item:hover{background:#f8f8f8;cursor:pointer}
+input.field,textarea.field{padding:9px 12px;border-radius:7px;border:1px solid #e0e0e0;font-size:13px;outline:none;font-family:inherit;background:#fff;color:#111;width:100%}
+textarea.field{resize:vertical}
+.save-btn{padding:8px 16px;border-radius:6px;border:none;background:#111;color:#fff;font-size:13px;font-weight:500;align-self:flex-start}
+.save-btn:hover{opacity:.75}
+.url-toggle-btn{background:none;border:none;font-size:12px;color:#bbb;padding:0;text-align:left}
+.url-row{display:flex;gap:6px;align-items:center}
+/* list */
+.memo-list{display:flex;flex-direction:column}
+.memo-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #f2f2f2}
+.list-tag{font-size:11px;font-weight:500;padding:3px 8px;border-radius:4px;white-space:nowrap;margin-top:1px;flex-shrink:0}
+.memo-text{font-size:13px;color:#333;line-height:1.6}
+.memo-url{font-size:11px;color:#0066cc;word-break:break-all;display:block;margin-top:4px;opacity:.8}
+.empty-small{color:#ccc;font-size:12px;padding:14px 0}
+/* overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px}
+/* card viewer */
+.viewer-modal{background:#fff;border-radius:14px;overflow:hidden;width:100%;max-width:440px;box-shadow:0 12px 48px rgba(0,0,0,.2);position:relative}
+.viewer-top-btns{position:absolute;top:12px;right:12px;z-index:10;display:flex;gap:8px}
+.viewer-icon-btn{background:rgba(0,0,0,.35);border:none;border-radius:50%;width:30px;height:30px;color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
+.viewer-icon-btn:hover{opacity:.75}
+.viewer-img-box{position:relative;height:280px;background:#f0f0f0}
+.viewer-img-box img{width:100%;height:100%;object-fit:cover}
+.viewer-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;opacity:.2}
+.viewer-body{padding:16px 20px 22px}
+.viewer-tag{font-size:11px;color:#aaa;font-weight:500;letter-spacing:.03em}
+.viewer-name{font-size:17px;font-weight:700;color:#111;margin:5px 0 8px;line-height:1.3}
+.viewer-note{font-size:13px;color:#666;line-height:1.65}
+.viewer-edit-area{display:grid;grid-template-columns:1fr;gap:0;padding:14px 16px 6px;background:#f8f8f8;border-bottom:1px solid #eee}
+.edit-thumb{height:110px;border-radius:8px;overflow:hidden;position:relative;background:#eee;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px dashed #ccc}
+.edit-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0}
+.img-del-btn{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.45);border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:10px;display:flex;align-items:center;justify-content:center}
+.edit-input{display:block;width:100%;padding:9px 12px;border-radius:8px;border:1px solid #e0e0e0;font-size:15px;font-weight:600;color:#111;outline:none;font-family:inherit;margin-top:8px;margin-bottom:8px}
+.edit-textarea{display:block;width:100%;padding:9px 12px;border-radius:8px;border:1px solid #e0e0e0;font-size:13px;color:#555;outline:none;font-family:inherit;resize:vertical}
+.edit-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.cancel-btn{padding:7px 16px;border-radius:6px;border:1px solid #e0e0e0;background:#fff;font-size:13px;color:#666}
+/* card modal */
+.modal{background:#fff;border-radius:12px;padding:22px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal-title{font-size:15px;font-weight:600}
+.close-btn{background:none;border:none;font-size:16px;color:#999}
+.type-row{display:flex;gap:6px;margin-bottom:14px}
+.type-btn{flex:1;padding:8px 0;border-radius:6px;border:none;font-size:13px;font-weight:500;background:#f5f5f5;color:#555}
+.type-btn.active{background:#111;color:#fff}
+.img-upload{height:120px;border-radius:10px;overflow:hidden;position:relative;background:#f5f5f5;border:1px dashed #ddd;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:10px;flex-direction:column;gap:4px}
+.img-upload img{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0}
+.img-upload-label{font-size:13px;color:#bbb}
+/* cat editor */
+.cat-modal{background:#fff;border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.14);max-height:85vh;display:flex;flex-direction:column}
+.cat-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.reset-btn{font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid #e0e0e0;background:#fafafa;color:#666}
+.new-cat-row{display:flex;align-items:center;gap:10px;background:#f8f8f8;border:1px solid #ebebeb;border-radius:10px;padding:12px 14px;margin-bottom:14px;position:relative}
+.color-dot-btn{width:28px;height:28px;border-radius:50%;border:2px solid rgba(0,0,0,.08);flex-shrink:0}
+.color-picker{position:absolute;top:calc(100% + 8px);left:0;background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:12px;box-shadow:0 6px 24px rgba(0,0,0,.12);z-index:500;display:grid;grid-template-columns:repeat(6,1fr);gap:7px;width:220px}
+.color-swatch{width:26px;height:26px;border-radius:50%;border:none}
+.color-swatch:hover{transform:scale(1.15)}
+.cat-list{overflow-y:auto;flex:1}
+.cat-list-item{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid #f5f5f5;position:relative}
+.cat-list-name{font-size:14px;color:#333;flex:1}
+.cat-del-btn{background:none;border:none;color:#e06060;font-size:13px;margin-left:auto}
+.cat-note{font-size:11px;color:#bbb;margin-top:14px;line-height:1.6}
+/* cropper */
+.cropper-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.cropper-head{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:2px}
+.cropper-btns{display:flex;gap:8px;justify-content:flex-end;width:100%}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><span>불러오는 중...</span></div>
+<div id="app" style="display:none">
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-row">
+    <div id="app-title">내 여행 컬렉션</div>
+    <button class="add-btn" id="open-add-card">+ 장소 추가</button>
+  </div>
+  <div id="tabs">
+    <button class="tab-btn active" data-cat="all">전체</button>
+    <button class="tab-btn" data-cat="restaurant">식당</button>
+    <button class="tab-btn" data-cat="cafe">카페</button>
+    <button class="tab-btn" data-cat="attraction">관광지</button>
+  </div>
+</div>
+
+<!-- SPLIT -->
+<div id="split">
+  <div id="left">
+    <div id="grid"></div>
+  </div>
+  <div id="divider"><div id="divider-line"></div></div>
+  <div id="right" style="width:380px">
+    <!-- MEMO SECTION -->
+    <div class="section-head"><span class="section-title">메모</span></div>
+    <div class="form-box">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="position:relative;flex:1" id="cat-drop-wrap">
+          <button class="cat-trigger" id="cat-trigger-btn">
+            <span class="dot-sm" id="cat-trigger-dot" style="background:#ccc"></span>
+            <span id="cat-trigger-label" style="font-size:13px;color:#bbb">카테고리 (선택)</span>
+            <span style="color:#ccc;font-size:9px;margin-left:auto">▼</span>
+          </button>
+          <div class="dropdown" id="cat-dropdown" style="display:none"></div>
+        </div>
+        <button class="pencil-btn" id="open-cat-editor">✏️</button>
+      </div>
+      <textarea class="field" id="memo-text" placeholder="메모를 입력하세요" rows="3"></textarea>
+      <div id="url-section">
+        <button class="url-toggle-btn" id="url-toggle">🔗 URL 추가 (선택)</button>
+        <div id="url-input-row" class="url-row" style="display:none">
+          <input class="field" id="memo-url" placeholder="https://" style="flex:1"/>
+          <button class="del-btn" id="url-close" style="font-size:14px">✕</button>
+        </div>
+      </div>
+      <button class="save-btn" id="save-memo">저장</button>
+    </div>
+    <div class="memo-list" id="memo-list"></div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- OVERLAYS -->
+<div class="overlay" id="viewer-overlay" style="display:none">
+  <div class="viewer-modal" id="viewer-modal">
+    <div class="viewer-top-btns">
+      <button class="viewer-icon-btn" id="viewer-edit-btn" title="수정">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="viewer-icon-btn" id="viewer-close-btn">✕</button>
+    </div>
+    <div id="viewer-img-box" class="viewer-img-box"></div>
+    <div class="viewer-body">
+      <div id="viewer-tag" class="viewer-tag"></div>
+      <div id="viewer-content"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="add-card-overlay" style="display:none">
+  <div class="modal" id="add-card-modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-title-text">장소 추가</span>
+      <button class="close-btn" id="close-add-card">✕</button>
+    </div>
+    <div class="type-row">
+      <button class="type-btn active" data-type="restaurant">식당</button>
+      <button class="type-btn" data-type="cafe">카페</button>
+      <button class="type-btn" data-type="attraction">관광지</button>
+    </div>
+    <div class="img-upload" id="img-upload-area">
+      <span style="font-size:22px;color:#ccc">📷</span>
+      <span class="img-upload-label">사진 추가 (선택)</span>
+    </div>
+    <input type="file" id="img-file-input" accept="image/*" style="display:none"/>
+    <input class="field" id="card-name" placeholder="장소 이름" style="margin-bottom:8px"/>
+    <textarea class="field" id="card-note" placeholder="기대평" rows="2" style="margin-bottom:8px"></textarea>
+    <input class="field" id="card-map-link" placeholder="📍 구글맵 링크" style="margin-bottom:8px"/>
+    <input class="field" id="card-link" placeholder="🔗 관련 링크 (블로그 등)" style="margin-bottom:10px"/>
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;color:#aaa;margin-bottom:6px">별점 (선택)</div>
+      <div class="stars" id="modal-stars"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="cancel-btn" id="cancel-add-card">취소</button>
+      <button class="save-btn" id="confirm-add-card">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- CROPPER OVERLAY -->
+<div class="overlay" id="crop-overlay" style="display:none">
+  <div class="modal" style="max-width:460px">
+    <div class="cropper-wrap" id="cropper-wrap"></div>
+  </div>
+</div>
+
+<!-- CAT EDITOR OVERLAY -->
+<div class="overlay" id="cat-editor-overlay" style="display:none">
+  <div class="cat-modal">
+    <div class="cat-modal-head">
+      <span style="font-size:15px;font-weight:600">🗂 카테고리 편집</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="reset-btn" id="reset-cats">기본값으로</button>
+        <button class="close-btn" id="close-cat-editor">✕</button>
+      </div>
+    </div>
+    <div class="new-cat-row" id="new-cat-row">
+      <button class="color-dot-btn" id="new-cat-color-btn" style="background:#6030a0"></button>
+      <div id="new-cat-color-picker" style="display:none" class="color-picker"></div>
+      <input class="field" id="new-cat-name" placeholder="새 카테고리 이름" style="flex:1"/>
+      <button class="save-btn" id="add-cat-btn" style="padding:8px 14px;white-space:nowrap">+ 추가</button>
+    </div>
+    <div class="cat-list" id="cat-list"></div>
+    <div class="cat-note">💡 카테고리를 삭제해도 기존 메모 항목은 그대로 남아요.</div>
+  </div>
+</div>
+
+<script>
+// Firebase config
+// ⬇️ 여기에 Firebase 설정을 붙여넣으세요
+const firebaseConfig = {
+  apiKey: "AIzaSyAacHLuLjJa-4xYkr0r4cPJQ7rSZKhMHWM",
+  authDomain: "travel-archive-82904.firebaseapp.com",
+  projectId: "travel-archive-82904",
+  storageBucket: "travel-archive-82904.firebasestorage.app",
+  messagingSenderId: "835717660158",
+  appId: "1:835717660158:web:22e20a92e81c5a9f4654af"
+};
+window.__db = null;
+try{ firebase.initializeApp(firebaseConfig); window.__db=firebase.firestore(); }catch(e){console.error(e);}
+</script>
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STAR IMAGE (embedded)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const STAR_FILLED_SRC = ""; // removed
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let cards = [
+  { id:3, type:"restaurant", name:"딘타이펑 본점", note:"샤오롱바오는 무조건 여기서! 웨이팅 각오하기", image:null, rating:0 },
+  { id:2, type:"cafe", name:"Seesaw Coffee 안복로점", note:"상하이 감성 카페 골목 안복로의 대표 카페", image:null, rating:0 },
+  { id:1, type:"attraction", name:"와이탄", note:"야경이 진짜 메인, 저녁 8시 이후에 가기", image:null, rating:0 },
+];
+let memos = [
+  { id:2, catId:3, text:"상하이 안복로 카페 거리 투어", url:"https://instagram.com/reel/example" },
+  { id:1, catId:5, text:"공항에서 시내는 마글레브(자기부상열차)가 가장 빠름. 단 종점 룽양루에서 지하철 환승 필요!", url:"" },
+];
+let memoCats = [
+  {id:1,name:"맛집",color:"#e07840"},
+  {id:2,name:"카페",color:"#d4a020"},
+  {id:3,name:"장소",color:"#2060a0"},
+  {id:4,name:"아이디어",color:"#6030a0"},
+  {id:5,name:"교통",color:"#208050"},
+  {id:6,name:"준비물",color:"#2040c0"},
+  {id:7,name:"주의사항",color:"#c03070"},
+  {id:8,name:"기타",color:"#606870"},
+];
+const DEFAULT_CATS = JSON.parse(JSON.stringify(memoCats));
+let nextCatId = 100;
+
+const COLOR_PALETTE = [
+  "#e05c5c","#e87c7c","#f0a0a0","#e07840","#e8a060","#f0c080",
+  "#d4a020","#e8c840","#f0e060","#208050","#40a870","#70c890",
+  "#209070","#40b890","#80d8b8","#2060a0","#4080c0","#80b0e0",
+  "#2040c0","#5070d8","#90a8f0","#6030a0","#8850c0","#b080e0",
+  "#a030a0","#c060c0","#e090e0","#c03070","#e05890","#f090b8",
+  "#d08060","#b89060","#907040","#705030","#606870","#202020",
+];
+const TYPE_LABEL = {restaurant:"식당",cafe:"카페",attraction:"관광지"};
+const TYPE_ICON  = {restaurant:"🍽️",cafe:"☕",attraction:"🗺️"};
+
+// current selections
+let activeCat = "all";
+let selectedMemocat = null;
+let showUrlInput = false;
+let newCardType = "restaurant";
+let newCardImage = null;
+let newCardRating = 0;
+let editingCardId = null;
+let viewingCardId = null;
+let cropCallback = null;
+let newCatColor = "#6030a0";
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STAR HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function heartSVG(filled, size) {
+  if (filled) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="hg${size}" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stop-color="#ffb3cc"/>
+          <stop offset="100%" stop-color="#ff7aa8"/>
+        </radialGradient>
+      </defs>
+      <path d="M50 85 C50 85 15 60 15 38 C15 24 25 14 38 17 C43 18 47 22 50 26 C53 22 57 18 62 17 C75 14 85 24 85 38 C85 60 50 85 50 85Z"
+        fill="url(#hg${size})" stroke="#ff9dbf" stroke-width="2"/>
+    </svg>`;
+  } else {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 85 C50 85 15 60 15 38 C15 24 25 14 38 17 C43 18 47 22 50 26 C53 22 57 18 62 17 C75 14 85 24 85 38 C85 60 50 85 50 85Z"
+        fill="#f5e6ec" stroke="#e8c4d4" stroke-width="2"/>
+    </svg>`;
+  }
+}
+
+function starHTML(value, size, id, interactive) {
+  let h = `<div class="hearts" ${id ? `id="${id}"` : ""}>`;
+  for (let i=1;i<=5;i++) {
+    const filled = i <= value;
+    h += `<span class="heart-wrap" style="display:block;width:${size}px;height:${size}px;cursor:${interactive?'pointer':'default'}"
+      ${interactive ? `data-star="${i}"` : ""}>${heartSVG(filled, size)}</span>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function makeStarsInteractive(container, getValue, setValue, size) {
+  container.querySelectorAll('[data-star]').forEach(el => {
+    el.addEventListener('click', () => {
+      const v = parseInt(el.dataset.star);
+      setValue(v === getValue() ? 0 : v);
+    });
+    el.addEventListener('mouseenter', () => {
+      const v = parseInt(el.dataset.star);
+      container.querySelectorAll('[data-star]').forEach((s,i) => {
+        s.innerHTML = heartSVG(i+1 <= v, size);
+      });
+    });
+    el.addEventListener('mouseleave', () => {
+      const val = getValue();
+      container.querySelectorAll('[data-star]').forEach((s,i) => {
+        s.innerHTML = heartSVG(i+1 <= val, size);
+      });
+    });
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER GRID
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const filtered = activeCat === 'all' ? cards : cards.filter(c => c.type === activeCat);
+  if (!filtered.length) { grid.innerHTML = '<div class="empty">저장된 장소가 없어요</div>'; return; }
+  grid.innerHTML = filtered.map(card => `
+    <div class="card" data-id="${card.id}">
+      <div class="card-img">
+        ${card.image ? `<img src="${card.image}" alt="">` : `<span class="card-icon">${TYPE_ICON[card.type]}</span>`}
+      </div>
+      <div class="card-body">
+        <div class="card-meta">
+          <span class="card-tag">${TYPE_LABEL[card.type]}</span>
+          <button class="del-btn card-del" data-id="${card.id}">✕</button>
+        </div>
+        <div class="card-name">${esc(card.name)}</div>
+        ${card.note ? `<div class="card-note">${esc(card.note)}</div>` : ''}
+        ${(card.mapLink||card.link) ? `<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          ${card.mapLink ? `<a href="${esc(card.mapLink)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#e07840;background:#fff5ee;padding:2px 8px;border-radius:10px;border:1px solid #f0c090">📍 지도</a>` : ''}
+          ${card.link ? `<a href="${esc(card.link)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#2060a0;background:#f0f5ff;padding:2px 8px;border-radius:10px;border:1px solid #a8c0e8">🔗 링크</a>` : ''}
+        </div>` : ''}
+        ${card.rating > 0 ? starHTML(card.rating, 18, '', false) : ''}
+      </div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.card-del')) return;
+      openViewer(parseInt(el.dataset.id));
+    });
+  });
+  grid.querySelectorAll('.card-del').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteCard(parseInt(el.dataset.id));
+    });
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER MEMOS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderMemos() {
+  const list = document.getElementById('memo-list');
+  if (!memos.length) { list.innerHTML = '<div class="empty-small">저장된 메모가 없어요</div>'; return; }
+  list.innerHTML = memos.map(m => {
+    const cat = memoCats.find(c => c.id === m.catId);
+    const tagHtml = cat
+      ? `<span class="list-tag" style="background:${hexBg(cat.color)};color:${cat.color}">${esc(cat.name)}</span>`
+      : `<span style="width:4px"></span>`;
+    return `
+      <div class="memo-item">
+        ${tagHtml}
+        <div style="flex:1;min-width:0">
+          <div class="memo-text">${esc(m.text)}</div>
+          ${m.url ? `<a href="${esc(m.url)}" target="_blank" class="memo-url">🔗 ${esc(m.url)}</a>` : ''}
+        </div>
+        <button class="del-btn memo-del" data-id="${m.id}">✕</button>
+      </div>`;
+  }).join('');
+  list.querySelectorAll('.memo-del').forEach(el => {
+    el.addEventListener('click', () => deleteMemo(parseInt(el.dataset.id)));
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CARD VIEWER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let viewerRating = 0;
+
+function openViewer(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  viewingCardId = id;
+  viewerRating = card.rating || 0;
+  renderViewerRead(card);
+  document.getElementById('viewer-overlay').style.display = 'flex';
+}
+
+function renderViewerRead(card) {
+  document.getElementById('viewer-edit-btn').style.display = 'flex';
+  document.getElementById('viewer-tag').textContent = TYPE_LABEL[card.type];
+  const imgBox = document.getElementById('viewer-img-box');
+  imgBox.innerHTML = card.image
+    ? `<img src="${card.image}" alt="">`
+    : `<div class="viewer-no-img">${TYPE_ICON[card.type]}</div>`;
+
+  const content = document.getElementById('viewer-content');
+  content.innerHTML = `
+    <div class="viewer-name">${esc(card.name)}</div>
+    ${card.note ? `<div class="viewer-note">${esc(card.note)}</div>` : ''}
+    ${(card.mapLink||card.link) ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${card.mapLink?`<a href="${esc(card.mapLink)}" target="_blank" style="font-size:12px;color:#e07840;background:#fff5ee;padding:4px 12px;border-radius:12px;border:1px solid #f0c090">📍 구글맵</a>`:''}
+      ${card.link?`<a href="${esc(card.link)}" target="_blank" style="font-size:12px;color:#2060a0;background:#f0f5ff;padding:4px 12px;border-radius:12px;border:1px solid #a8c0e8">🔗 링크</a>`:''}
+    </div>` : ''}
+    <div style="margin-top:14px">
+      <div style="font-size:11px;color:#aaa;margin-bottom:6px">별점</div>
+      ${starHTML(viewerRating, 22, 'viewer-stars', true)}
+    </div>`;
+
+  makeStarsInteractive(content.querySelector('#viewer-stars'),
+    () => viewerRating,
+    v => {
+      viewerRating = v;
+      const c = cards.find(x => x.id === viewingCardId);
+      if (c) { c.rating = v; fbSaveAll('cards', cards); renderGrid(); }
+    }, 22);
+}
+
+function openViewerEdit() {
+  const card = cards.find(c => c.id === viewingCardId);
+  if (!card) return;
+  document.getElementById('viewer-edit-btn').style.display = 'none';
+
+  // Keep image box as-is (show current image), put all edit fields in body
+  const content = document.getElementById('viewer-content');
+  const imgBox = document.getElementById('viewer-img-box');
+  let editImage = card.image || null;
+
+  // hidden file input
+  const editFileInput = document.createElement('input');
+  editFileInput.type = 'file'; editFileInput.accept = 'image/*'; editFileInput.style.display = 'none';
+  document.body.appendChild(editFileInput);
+
+  function renderImgBoxEdit(src) {
+    imgBox.style.cursor = 'pointer';
+    imgBox.innerHTML = src
+      ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover">
+         <button id="edit-img-del" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.45);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;z-index:5">✕ 사진 삭제</button>`
+      : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#bbb;pointer-events:none">
+           <span style="font-size:32px">📷</span>
+           <span style="font-size:13px">클릭해서 사진 추가</span>
+         </div>`;
+    const del = document.getElementById('edit-img-del');
+    if (del) del.addEventListener('click', e => { e.stopPropagation(); editImage = null; renderImgBoxEdit(null); });
+  }
+  renderImgBoxEdit(editImage);
+
+  imgBox.addEventListener('click', (e) => {
+    if (e.target.id === 'edit-img-del' || e.target.closest('#edit-img-del')) return;
+    editFileInput.click();
+  });
+
+  editFileInput.addEventListener('change', e => {
+    const file = e.target.files[0]; if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      const img = new Image();
+      img.onload = () => {
+        if (Math.abs(img.width / img.height - 1) > 0.02) {
+          openCropper(dataUrl, cropped => { editImage = cropped; renderImgBoxEdit(cropped); });
+        } else {
+          editImage = dataUrl; renderImgBoxEdit(dataUrl);
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  content.innerHTML = `
+    <input class="edit-input" id="edit-name" value="${esc(card.name)}" placeholder="장소 이름"/>
+    <textarea class="edit-textarea" id="edit-note" rows="2" placeholder="기대평">${esc(card.note||'')}</textarea>
+    <input class="edit-input" id="edit-map-link" value="${esc(card.mapLink||'')}" placeholder="📍 구글맵 링크" style="font-weight:400;font-size:13px;margin-top:6px;margin-bottom:0"/>
+    <input class="edit-input" id="edit-link" value="${esc(card.link||'')}" placeholder="🔗 관련 링크" style="font-weight:400;font-size:13px;margin-top:6px;margin-bottom:0"/>
+    <div class="edit-actions">
+      <button class="cancel-btn" id="edit-cancel">취소</button>
+      <button class="save-btn" id="edit-save">저장</button>
+    </div>`;
+
+  document.getElementById('edit-cancel').addEventListener('click', () => {
+    editFileInput.remove();
+    imgBox.style.cursor = '';
+    renderViewerRead(card);
+  });
+  document.getElementById('edit-save').addEventListener('click', () => {
+    const name = document.getElementById('edit-name').value.trim();
+    if (!name) return;
+    card.name = name;
+    card.note = document.getElementById('edit-note').value.trim();
+    card.image = editImage;
+    card.mapLink = document.getElementById('edit-map-link').value.trim();
+    card.link = document.getElementById('edit-link').value.trim();
+    fbSaveAll('cards', cards);
+    renderGrid();
+    editFileInput.remove();
+    imgBox.style.cursor = '';
+    renderViewerRead(card);
+  });
+}
+
+document.getElementById('viewer-edit-btn').addEventListener('click', openViewerEdit);
+document.getElementById('viewer-close-btn').addEventListener('click', () => {
+  document.getElementById('viewer-overlay').style.display = 'none';
+  document.getElementById('viewer-img-box').style.height = '280px';
+  viewingCardId = null;
+});
+document.getElementById('viewer-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('viewer-overlay')) {
+    document.getElementById('viewer-overlay').style.display = 'none';
+    document.getElementById('viewer-img-box').style.height = '280px';
+    viewingCardId = null;
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADD CARD MODAL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openAddCardModal() {
+  newCardType = 'restaurant'; newCardImage = null; newCardRating = 0;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'restaurant'));
+  document.getElementById('img-upload-area').innerHTML = '<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';
+  document.getElementById('card-name').value = '';
+  document.getElementById('card-note').value = '';
+  document.getElementById('card-map-link').value = '';
+  document.getElementById('card-link').value = '';
+  const ms = document.getElementById('modal-stars');
+  ms.innerHTML = starHTML(0, 20, 'modal-stars-inner', true);
+  makeStarsInteractive(ms, () => newCardRating, v => { newCardRating = v; ms.innerHTML = starHTML(newCardRating,20,'modal-stars-inner',true); makeStarsInteractive(ms,()=>newCardRating,vv=>{newCardRating=vv;ms.innerHTML=starHTML(newCardRating,20,'modal-stars-inner',true);makeStarsInteractive(ms,()=>newCardRating,()=>{},20);},20); }, 20);
+  document.getElementById('add-card-overlay').style.display = 'flex';
+}
+
+document.getElementById('open-add-card').addEventListener('click', openAddCardModal);
+document.getElementById('close-add-card').addEventListener('click', () => document.getElementById('add-card-overlay').style.display='none');
+document.getElementById('cancel-add-card').addEventListener('click', () => document.getElementById('add-card-overlay').style.display='none');
+document.getElementById('add-card-overlay').addEventListener('click', e => { if(e.target===document.getElementById('add-card-overlay')) document.getElementById('add-card-overlay').style.display='none'; });
+
+document.querySelectorAll('.type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    newCardType = btn.dataset.type;
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === newCardType));
+  });
+});
+
+document.getElementById('img-upload-area').addEventListener('click', () => document.getElementById('img-file-input').click());
+document.getElementById('img-file-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value='';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      if (Math.abs(img.width/img.height-1) > 0.02) {
+        openCropper(dataUrl, cropped => {
+          newCardImage = cropped;
+          const area = document.getElementById('img-upload-area');
+          area.innerHTML = `<img src="${cropped}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"><button id="img-clear-btn" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px">✕</button>`;
+          document.getElementById('img-clear-btn').addEventListener('click',e=>{e.stopPropagation();newCardImage=null;document.getElementById('img-upload-area').innerHTML='<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';});
+        });
+      } else {
+        newCardImage = dataUrl;
+        const area = document.getElementById('img-upload-area');
+        area.innerHTML = `<img src="${dataUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"><button id="img-clear-btn" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px">✕</button>`;
+        document.getElementById('img-clear-btn').addEventListener('click',e=>{e.stopPropagation();newCardImage=null;document.getElementById('img-upload-area').innerHTML='<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';});
+      }
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('confirm-add-card').addEventListener('click', () => {
+  const name = document.getElementById('card-name').value.trim();
+  if (!name) return;
+  const card = { id: Date.now(), type: newCardType, name, note: document.getElementById('card-note').value.trim(), image: newCardImage, mapLink: document.getElementById('card-map-link').value.trim(), link: document.getElementById('card-link').value.trim(), rating: newCardRating };
+  cards.unshift(card);
+  fbSaveAll('cards', cards);
+  renderGrid();
+  document.getElementById('add-card-overlay').style.display = 'none';
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DELETE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function deleteCard(id) {
+  cards = cards.filter(c => c.id !== id);
+  fbSaveAll('cards', cards);
+  renderGrid();
+}
+function deleteMemo(id) {
+  memos = memos.filter(m => m.id !== id);
+  fbSaveAll('memos', memos);
+  renderMemos();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TABS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeCat = btn.dataset.cat;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === activeCat));
+    renderGrid();
+  });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MEMO FORM
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderCatDropdown() {
+  const dd = document.getElementById('cat-dropdown');
+  dd.innerHTML = `
+    <div class="drop-header">카테고리 선택</div>
+    <div class="drop-item" data-catid="null">
+      <span class="dot-sm" style="background:#ccc"></span>
+      <span style="color:#aaa">없음</span>
+      ${selectedMemocat===null?'<span style="margin-left:auto;color:#aaa;font-size:11px">✓</span>':''}
+    </div>
+    ${memoCats.map(c=>`
+      <div class="drop-item" data-catid="${c.id}">
+        <span class="dot-sm" style="background:${c.color}"></span>
+        <span>${esc(c.name)}</span>
+        ${selectedMemocat===c.id?'<span style="margin-left:auto;color:#888;font-size:11px">✓</span>':''}
+      </div>`).join('')}`;
+  dd.querySelectorAll('.drop-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const v = el.dataset.catid;
+      selectedMemocat = v==='null' ? null : parseInt(v);
+      updateCatTrigger();
+      dd.style.display='none';
+    });
+  });
+}
+
+function updateCatTrigger() {
+  const cat = memoCats.find(c => c.id === selectedMemocat);
+  document.getElementById('cat-trigger-dot').style.background = cat ? cat.color : '#ccc';
+  document.getElementById('cat-trigger-label').style.color = cat ? '#444' : '#bbb';
+  document.getElementById('cat-trigger-label').textContent = cat ? cat.name : '카테고리 (선택)';
+}
+
+document.getElementById('cat-trigger-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  const dd = document.getElementById('cat-dropdown');
+  if (dd.style.display==='none'){ renderCatDropdown(); dd.style.display='block'; }
+  else dd.style.display='none';
+});
+document.addEventListener('click', e => {
+  if (!document.getElementById('cat-drop-wrap').contains(e.target))
+    document.getElementById('cat-dropdown').style.display='none';
+});
+
+document.getElementById('url-toggle').addEventListener('click', () => {
+  document.getElementById('url-toggle').style.display='none';
+  document.getElementById('url-input-row').style.display='flex';
+});
+document.getElementById('url-close').addEventListener('click', () => {
+  document.getElementById('memo-url').value='';
+  document.getElementById('url-input-row').style.display='none';
+  document.getElementById('url-toggle').style.display='block';
+});
+
+document.getElementById('save-memo').addEventListener('click', () => {
+  const text = document.getElementById('memo-text').value.trim();
+  if (!text) return;
+  const url = document.getElementById('memo-url').value.trim();
+  memos.push({ id: Date.now(), catId: selectedMemocat, text, url });
+  fbSaveAll('memos', memos);
+  renderMemos();
+  document.getElementById('memo-text').value='';
+  document.getElementById('memo-url').value='';
+  document.getElementById('url-input-row').style.display='none';
+  document.getElementById('url-toggle').style.display='block';
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CROPPER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function openCropper(src, cb) {
+  cropCallback = cb;
+  const wrap = document.getElementById('cropper-wrap');
+  const DISP = 380;
+  const img = new Image();
+  img.onload = () => {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    let cropX = (W-Math.min(W,H))/2, cropY = (H-Math.min(W,H))/2, cropS = Math.min(W,H);
+    const scale = DISP / Math.max(W,H);
+    const canW = W*scale, canH = H*scale;
+
+    wrap.innerHTML = `
+      <div class="cropper-head">
+        <span style="font-weight:600;font-size:14px">사진 크롭</span>
+        <span style="font-size:12px;color:#888">정사각형으로 조정해주세요</span>
+      </div>
+      <div style="position:relative;display:inline-block;user-select:none" id="crop-container">
+        <img src="${src}" style="display:block;width:${canW}px;height:${canH}px" id="crop-bg-img">
+        <canvas id="crop-canvas" style="position:absolute;top:0;left:0;width:${canW}px;height:${canH}px"></canvas>
+      </div>
+      <div class="cropper-btns">
+        <button class="cancel-btn" id="crop-cancel">취소</button>
+        <button class="save-btn" id="crop-done">크롭 완료</button>
+      </div>`;
+
+    const canvas = document.getElementById('crop-canvas');
+    canvas.width = canW; canvas.height = canH;
+
+    function draw() {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canW,canH);
+      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,canW,canH);
+      const cx=cropX*scale, cy=cropY*scale, cs=cropS*scale;
+      ctx.clearRect(cx,cy,cs,cs);
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.strokeRect(cx,cy,cs,cs);
+      const h=10;
+      [[cx,cy],[cx+cs-h,cy],[cx,cy+cs-h],[cx+cs-h,cy+cs-h]].forEach(([x,y])=>{ctx.fillStyle='#fff';ctx.fillRect(x,y,h,h);});
+    }
+    draw();
+
+    let drag=null;
+    canvas.addEventListener('mousedown', e => {
+      const r=canvas.getBoundingClientRect();
+      const mx=(e.clientX-r.left)/scale, my=(e.clientY-r.top)/scale;
+      const h=20/scale;
+      const cx=cropX, cy=cropY, cs=cropS;
+      if (Math.abs(mx-cx)<h&&Math.abs(my-cy)<h) drag={type:'tl',ox:mx,oy:my,cx,cy,cs};
+      else if (Math.abs(mx-(cx+cs))<h&&Math.abs(my-cy)<h) drag={type:'tr',ox:mx,oy:my,cx,cy,cs};
+      else if (Math.abs(mx-cx)<h&&Math.abs(my-(cy+cs))<h) drag={type:'bl',ox:mx,oy:my,cx,cy,cs};
+      else if (Math.abs(mx-(cx+cs))<h&&Math.abs(my-(cy+cs))<h) drag={type:'br',ox:mx,oy:my,cx,cy,cs};
+      else if (mx>cx&&mx<cx+cs&&my>cy&&my<cy+cs) drag={type:'move',ox:mx,oy:my,cx,cy,cs};
+    });
+    const onMove = e => {
+      if (!drag) return;
+      const r=canvas.getBoundingClientRect();
+      const mx=(e.clientX-r.left)/scale, my=(e.clientY-r.top)/scale;
+      const dx=mx-drag.ox, dy=my-drag.oy;
+      let nx=drag.cx, ny=drag.cy, ns=drag.cs;
+      if (drag.type==='move') { nx=Math.max(0,Math.min(W-drag.cs,drag.cx+dx)); ny=Math.max(0,Math.min(H-drag.cs,drag.cy+dy)); }
+      else if (drag.type==='br') { ns=Math.max(40,Math.min(W-drag.cx,H-drag.cy,drag.cs+dx,drag.cs+dy)); }
+      else if (drag.type==='tl') { const d=Math.max(dx,dy); ns=Math.max(40,drag.cs-d); const dd=drag.cs-ns; nx=Math.max(0,drag.cx+dd); ny=Math.max(0,drag.cy+dd); }
+      else if (drag.type==='tr') { ns=Math.max(40,Math.min(W-drag.cx,drag.cs+dx)); ny=Math.max(0,drag.cy+(drag.cs-ns)); }
+      else if (drag.type==='bl') { ns=Math.max(40,Math.min(H-drag.cy,drag.cs+dy)); nx=Math.max(0,drag.cx+(drag.cs-ns)); }
+      cropX=nx; cropY=ny; cropS=ns; draw();
+    };
+    const onUp = () => { drag=null; };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+
+    document.getElementById('crop-cancel').addEventListener('click',()=>{
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      document.getElementById('crop-overlay').style.display='none';
+      cropCallback=null;
+    });
+    document.getElementById('crop-done').addEventListener('click',()=>{
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      const out=document.createElement('canvas'); out.width=400; out.height=400;
+      out.getContext('2d').drawImage(img,cropX,cropY,cropS,cropS,0,0,400,400);
+      document.getElementById('crop-overlay').style.display='none';
+      if (cropCallback) cropCallback(out.toDataURL('image/jpeg',.92));
+      cropCallback=null;
+    });
+  };
+  img.src=src;
+  document.getElementById('crop-overlay').style.display='flex';
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATEGORY EDITOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderCatList() {
+  const list = document.getElementById('cat-list');
+  list.innerHTML = memoCats.map(c => `
+    <div class="cat-list-item" data-catid="${c.id}">
+      <div style="position:relative">
+        <button class="color-dot-btn cat-color-btn" data-catid="${c.id}" style="background:${c.color}"></button>
+        <div class="color-picker cat-color-picker" id="cp-${c.id}" style="display:none">
+          ${COLOR_PALETTE.map(col=>`<button class="color-swatch" data-catid="${c.id}" data-color="${col}" style="background:${col};outline:${c.color===col?'2px solid #111':'none'}"></button>`).join('')}
+        </div>
+      </div>
+      <span class="cat-list-name">${esc(c.name)}</span>
+      <button class="cat-del-btn" data-catid="${c.id}">🗑</button>
+    </div>`).join('');
+
+  list.querySelectorAll('.cat-color-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id=parseInt(btn.dataset.catid);
+      const picker=document.getElementById(`cp-${id}`);
+      document.querySelectorAll('.cat-color-picker').forEach(p=>{ if(p!==picker) p.style.display='none'; });
+      picker.style.display = picker.style.display==='none'?'grid':'none';
+    });
+  });
+  list.querySelectorAll('.color-swatch').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id=parseInt(btn.dataset.catid), color=btn.dataset.color;
+      memoCats = memoCats.map(c => c.id===id?{...c,color}:c);
+      fbSaveAll('memoCats',memoCats);
+      renderCatList(); renderMemos(); updateCatTrigger();
+    });
+  });
+  list.querySelectorAll('.cat-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id=parseInt(btn.dataset.catid);
+      memoCats=memoCats.filter(c=>c.id!==id);
+      if(selectedMemocat===id){ selectedMemocat=null; updateCatTrigger(); }
+      fbSaveAll('memoCats',memoCats);
+      renderCatList(); renderMemos();
+    });
+  });
+}
+
+// new cat color picker
+document.getElementById('new-cat-color-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  const picker=document.getElementById('new-cat-color-picker');
+  if (!picker.innerHTML) {
+    picker.innerHTML = COLOR_PALETTE.map(col=>`<button class="color-swatch new-color-swatch" data-color="${col}" style="background:${col}"></button>`).join('');
+    picker.querySelectorAll('.new-color-swatch').forEach(b => {
+      b.addEventListener('click', e2 => { e2.stopPropagation(); newCatColor=b.dataset.color; document.getElementById('new-cat-color-btn').style.background=newCatColor; picker.style.display='none'; });
+    });
+  }
+  picker.style.display=picker.style.display==='none'?'grid':'none';
+});
+
+document.getElementById('add-cat-btn').addEventListener('click', () => {
+  const name=document.getElementById('new-cat-name').value.trim();
+  if(!name) return;
+  memoCats.push({id:nextCatId++,name,color:newCatColor});
+  fbSaveAll('memoCats',memoCats);
+  document.getElementById('new-cat-name').value='';
+  renderCatList();
+});
+document.getElementById('new-cat-name').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('add-cat-btn').click(); });
+
+document.getElementById('open-cat-editor').addEventListener('click',()=>{
+  renderCatList();
+  document.getElementById('cat-editor-overlay').style.display='flex';
+});
+document.getElementById('close-cat-editor').addEventListener('click',()=>{ document.getElementById('cat-editor-overlay').style.display='none'; });
+document.getElementById('cat-editor-overlay').addEventListener('click',e=>{ if(e.target===document.getElementById('cat-editor-overlay')) document.getElementById('cat-editor-overlay').style.display='none'; });
+document.getElementById('reset-cats').addEventListener('click',()=>{
+  memoCats=JSON.parse(JSON.stringify(DEFAULT_CATS)); nextCatId=100;
+  fbSaveAll('memoCats',memoCats);
+  renderCatList(); renderMemos(); updateCatTrigger();
+});
+
+document.addEventListener('click',()=>{ document.querySelectorAll('.cat-color-picker').forEach(p=>p.style.display='none'); });
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DIVIDER DRAG
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+document.getElementById('divider').addEventListener('mousedown',()=>{
+  document.body.style.cursor='col-resize';
+  document.body.style.userSelect='none';
+  const onMove=e=>{
+    const split=document.getElementById('split');
+    const rect=split.getBoundingClientRect();
+    const w=Math.max(260,Math.min(600,rect.right-e.clientX));
+    document.getElementById('right').style.width=w+'px';
+  };
+  const onUp=()=>{ document.body.style.cursor=''; document.body.style.userSelect=''; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FIREBASE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const TRIP_ID='my-trip-2025';
+async function fbLoad(col){
+  const db=window.__db; if(!db) return null;
+  try{ const s=await db.collection('trips').doc(TRIP_ID).collection(col).get(); return s.docs.map(d=>({...d.data()})); }catch(e){return null;}
+}
+async function fbSaveAll(col,items){
+  const db=window.__db; if(!db) return;
+  try{
+    const ref=db.collection('trips').doc(TRIP_ID).collection(col);
+    const batch=db.batch();
+    const ex=await ref.get(); ex.docs.forEach(d=>batch.delete(d.ref));
+    items.forEach(item=>batch.set(ref.doc(String(item.id)),item));
+    await batch.commit();
+  }catch(e){console.error(e);}
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function hexBg(hex){
+  try{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},.12)`; }
+  catch{return '#f0f0f0';}
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function init(){
+  const [c,m,mc]=await Promise.all([fbLoad('cards'),fbLoad('memos'),fbLoad('memoCats')]);
+  if(c&&c.length) cards=c;
+  if(m&&m.length) memos=m;
+  if(mc&&mc.length){ memoCats=mc; nextCatId=Math.max(...mc.map(x=>x.id||0))+1; }
+  renderGrid(); renderMemos(); updateCatTrigger();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+init();
+</script>
+
+</body>
+</html>
