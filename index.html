@@ -20,13 +20,14 @@ a{text-decoration:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 #login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1500;padding:20px}
+#login-overlay.open{display:flex}
 .login-box{background:#fff;border-radius:16px;padding:32px 28px;width:100%;max-width:340px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)}
 .login-title{font-size:20px;font-weight:700;margin-bottom:6px}
-.login-sub{font-size:13px;color:#aaa;margin-bottom:24px}
-.login-field{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e0e0e0;font-size:14px;outline:none;margin-bottom:10px;text-align:center}
-.login-btn{width:100%;padding:11px;border-radius:8px;border:none;background:#111;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.login-sub{font-size:13px;color:#aaa;margin-bottom:16px}
+.login-field{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e0e0e0;font-size:14px;outline:none;margin-bottom:6px;text-align:center}
+.login-btn{width:100%;padding:11px;border-radius:8px;border:none;background:#111;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:0}
 .login-btn:hover{opacity:.8}
-.login-error{color:#e05c5c;font-size:12px;margin-top:8px;min-height:18px}
+.login-error{color:#e05c5c;font-size:12px;margin-top:4px;min-height:0}
 .guest-btn{background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline}
 
 #header{border-bottom:1px solid #e8e8e8;position:sticky;top:0;background:#fff;z-index:100}
@@ -196,7 +197,7 @@ textarea.field{resize:vertical}
     <input class="login-field" id="login-pin" placeholder="PIN (4자리)" type="password" maxlength="4"/>
     <div class="login-error" id="login-error"></div>
     <button class="login-btn" id="login-btn">로그인</button><br>
-    <button class="guest-btn" id="guest-btn">게스트로 둘러보기 →</button>
+    <button class="guest-btn" id="guest-btn">게스트(Guest)로 둘러보기 →</button>
   </div>
 </div>
 
@@ -204,7 +205,7 @@ textarea.field{resize:vertical}
   <!-- HEADER -->
   <div id="header">
     <div id="header-row">
-      <div id="app-title">내 여행 컬렉션</div>
+      <div id="app-title">💗 여행 컬렉션</div>
       <div id="header-right">
         <div id="add-card-wrap"><button class="add-btn" id="open-add-card">+ 장소 추가</button></div>
         <div id="profile-area"></div>
