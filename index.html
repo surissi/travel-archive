@@ -598,6 +598,12 @@ function renderGrid() {
     tag.className = "card-tag";
     tag.textContent = TYPE_LABEL[card.type] || card.type;
     meta.appendChild(tag);
+    if (card.author) {
+      var authorDiv = document.createElement("div");
+      authorDiv.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:auto";
+      authorDiv.innerHTML = avatarHTML(14, card.author) + '<span style="font-size:10px;color:#aaa">' + esc(card.author.name) + '</span>';
+      meta.appendChild(authorDiv);
+    }
     body.appendChild(meta);
 
     var name = document.createElement("div");
@@ -664,13 +670,7 @@ function renderGrid() {
       body.appendChild(heartsDiv);
     }
 
-    // author
-    if (card.author) {
-      var authorDiv = document.createElement("div");
-      authorDiv.className = "author-chip";
-      authorDiv.innerHTML = avatarHTML(16, card.author) + '<span>' + esc(card.author.name) + '</span>';
-      body.appendChild(authorDiv);
-    }
+
 
     div.appendChild(body);
 
