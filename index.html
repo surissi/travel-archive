@@ -616,7 +616,8 @@ function renderGrid() {
     body.appendChild(name);
     if (card.nameCn) {
       var nameCn = document.createElement("div");
-      nameCn.style.cssText = "font-size:12px;color:#aaa;margin-bottom:3px;margin-top:-3px";
+      nameCn.className = "card-name";
+      nameCn.style.marginTop = "-3px";
       nameCn.textContent = card.nameCn;
       body.appendChild(nameCn);
     }
@@ -857,12 +858,7 @@ function renderMemos() {
       linkCard.appendChild(openA);
       mid.appendChild(linkCard);
     }
-    if (m.author) {
-      var ac = document.createElement("div");
-      ac.className = "author-chip";
-      ac.innerHTML = avatarHTML(14, m.author) + '<span>' + esc(m.author.name) + '</span>';
-      mid.appendChild(ac);
-    }
+
     item.appendChild(mid);
 
     // buttons
@@ -991,7 +987,8 @@ function renderViewerRead(card) {
   content.appendChild(nameEl);
   if (card.nameCn) {
     var nameCnEl = document.createElement("div");
-    nameCnEl.style.cssText = "font-size:13px;color:#aaa;margin-top:-4px;margin-bottom:6px";
+    nameCnEl.className = "viewer-name";
+    nameCnEl.style.marginTop = "-6px";
     nameCnEl.textContent = card.nameCn;
     content.appendChild(nameCnEl);
   }
