@@ -1307,7 +1307,11 @@ el("viewer-close-btn").addEventListener("click", function(){
   viewingCardId = null;
 });
 el("viewer-overlay").addEventListener("click", function(e){
-  if (e.target === el("viewer-overlay")) { closeOverlay("viewer-overlay"); viewingCardId = null; }
+  if (e.target === el("viewer-overlay")) {
+    // don't close if edit btn is hidden (= edit mode active)
+    if (el("viewer-edit-btn").style.display === "none") return;
+    closeOverlay("viewer-overlay"); viewingCardId = null;
+  }
 });
 
 // ─── ADD CARD ─────────────────────────────────────────────────────
