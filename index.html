@@ -164,10 +164,6 @@ textarea.field{resize:vertical}
   <div class="login-box">
     <div class="login-title">✈️ 여행 컬렉션</div>
     <div class="login-sub">멤버 로그인 또는 게스트로 둘러보기</div>
-    <div style="margin-bottom:16px">
-      <div style="font-size:12px;color:#aaa;margin-bottom:8px">프로필 이모지 선택</div>
-      <div class="login-emoji-pick" id="login-emoji-pick"></div>
-    </div>
     <input class="login-field" id="login-name" placeholder="이름" maxlength="10"/>
     <input class="login-field" id="login-pin" placeholder="PIN (4자리)" type="password" maxlength="4"/>
     <div class="login-error" id="login-error"></div>
@@ -264,7 +260,15 @@ textarea.field{resize:vertical}
     <textarea class="field" id="card-note" placeholder="기대평" rows="2" style="margin-bottom:8px"></textarea>
     <textarea class="field" id="card-tip" placeholder="💡 팁 (가는 방법, 주의사항 등)" rows="2" style="margin-bottom:8px"></textarea>
     <input class="field" id="card-map-link" placeholder="📍 맵 링크" style="margin-bottom:8px"/>
-    <input class="field" id="card-link" placeholder="🔗 관련 링크 (블로그 등)" style="margin-bottom:10px"/>
+    <div id="card-links-wrap" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+      <div class="link-row" style="display:flex;flex-direction:column;gap:4px;background:#f9f9f9;border-radius:8px;padding:8px">
+        <input class="field link-title-input" placeholder="링크 제목 (예: 블로그 후기)" style="font-size:12px;padding:7px 10px"/>
+        <div style="display:flex;gap:6px">
+          <input class="field link-url-input" placeholder="🔗 URL" style="flex:1;font-size:12px;padding:7px 10px"/>
+          <button class="add-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:16px;cursor:pointer;color:#aaa;flex-shrink:0">+</button>
+        </div>
+      </div>
+    </div>
     <div style="margin-bottom:16px">
       <div style="font-size:12px;color:#aaa;margin-bottom:6px">별점 (선택)</div>
       <div class="stars" id="modal-stars"></div>
@@ -355,7 +359,7 @@ const MEMBERS = [
   { name:"현주", pin:"7060" },
   { name:"지원", pin:"7061" },
 ];
-const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🦋","🏎️","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🍓","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
+const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🦋","🏎️","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🏁","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
 
 let currentUser = null; // { name, emoji, photo } or null = guest
 
@@ -494,9 +498,9 @@ function renderGrid() {
         ${card.note ? `<div class="card-note">${esc(card.note)}</div>` : ''}
         ${card.tip ? `<div class="card-note" style="color:#888;margin-top:3px">💡 ${esc(card.tip)}</div>` : ''}
         ${card.author ? `<div class="author-tag">${avatarHTML(16, card.author)}<span>${esc(card.author.name)}</span></div>` : ''}
-        ${(card.mapLink||card.link) ? `<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        ${(card.mapLink||(card.links&&card.links.length)||(card.link)) ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
           ${card.mapLink ? `<a href="${esc(card.mapLink)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#e07840;background:#fff5ee;padding:2px 8px;border-radius:10px;border:1px solid #f0c090">📍 지도</a>` : ''}
-          ${card.link ? `<a href="${esc(card.link)}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:#2060a0;background:#f0f5ff;padding:2px 8px;border-radius:10px;border:1px solid #a8c0e8">🔗 링크</a>` : ''}
+          ${(card.links&&card.links.length)||(card.link) ? `<span onclick="event.stopPropagation();openViewer(${card.id})" style="font-size:11px;color:#2060a0;background:#f0f5ff;padding:2px 8px;border-radius:10px;border:1px solid #a8c0e8;cursor:pointer">🔗 링크</span>` : ''}
         </div>` : ''}
         ${card.rating > 0 ? starHTML(card.rating, 18, '', false) : ''}
       </div>
@@ -618,9 +622,16 @@ function renderViewerRead(card) {
     <div class="viewer-name">${esc(card.name)}</div>
     ${card.note ? `<div class="viewer-note">${esc(card.note)}</div>` : ''}
     ${card.tip ? `<div style="font-size:13px;color:#777;line-height:1.65;margin-top:6px;background:#f9f9f9;padding:8px 12px;border-radius:8px">💡 ${esc(card.tip)}</div>` : ''}
-    ${(card.mapLink||card.link) ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      ${card.mapLink?`<a href="${esc(card.mapLink)}" target="_blank" style="font-size:12px;color:#e07840;background:#fff5ee;padding:4px 12px;border-radius:12px;border:1px solid #f0c090">📍 구글맵</a>`:''}
-      ${card.link?`<a href="${esc(card.link)}" target="_blank" style="font-size:12px;color:#2060a0;background:#f0f5ff;padding:4px 12px;border-radius:12px;border:1px solid #a8c0e8">🔗 링크</a>`:''}
+    ${(card.mapLink||(card.links&&card.links.length)||(card.link)) ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+      ${card.mapLink ? `<a href="${esc(card.mapLink)}" target="_blank" style="font-size:12px;color:#e07840;background:#fff5ee;padding:6px 12px;border-radius:10px;border:1px solid #f0c090;display:flex;align-items:center;gap:6px">📍 <span>지도 링크</span></a>` : ''}
+      ${card.links ? card.links.map(l => {
+        const lt = typeof l==='object' ? (l.title||l.url||'') : (l||'');
+        const lu = typeof l==='object' ? (l.url||'') : (l||'');
+        return `<div style="display:flex;align-items:center;justify-content:space-between;background:#f0f5ff;padding:6px 12px;border-radius:10px;border:1px solid #a8c0e8">
+          <span style="font-size:12px;color:#2060a0">${esc(lt)}</span>
+          <a href="${esc(lu)}" target="_blank" style="font-size:16px;color:#4080c0;flex-shrink:0;line-height:1" title="${esc(lu)}">🔗</a>
+        </div>`;}).join('') : ''}
+      ${card.link ? `<div style="display:flex;align-items:center;justify-content:space-between;background:#f0f5ff;padding:6px 12px;border-radius:10px;border:1px solid #a8c0e8"><span style="font-size:12px;color:#2060a0">${esc(card.link)}</span><a href="${esc(card.link)}" target="_blank" style="font-size:16px;color:#4080c0;flex-shrink:0;line-height:1">🔗</a></div>` : ''}
     </div>` : ''}
     <div style="margin-top:14px">
       <div style="font-size:11px;color:#aaa;margin-bottom:6px">별점</div>
@@ -699,11 +710,43 @@ function openViewerEdit() {
     <textarea class="edit-textarea" id="edit-note" rows="2" placeholder="기대평">${esc(card.note||'')}</textarea>
     <textarea class="edit-textarea" id="edit-tip" rows="2" placeholder="💡 팁" style="margin-top:6px">${esc(card.tip||'')}</textarea>
     <input class="edit-input" id="edit-map-link" value="${esc(card.mapLink||'')}" placeholder="📍 맵 링크" style="font-weight:400;font-size:13px;margin-top:6px;margin-bottom:0"/>
-    <input class="edit-input" id="edit-link" value="${esc(card.link||'')}" placeholder="🔗 관련 링크" style="font-weight:400;font-size:13px;margin-top:6px;margin-bottom:0"/>
+    <div id="edit-links-wrap" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+      ${(card.links&&card.links.length ? card.links : [{title:'',url:card.link||''}]).map((l,i)=>{
+        const lt = typeof l === 'object' ? (l.title||'') : '';
+        const lu = typeof l === 'object' ? (l.url||'') : (l||'');
+        return `<div class="edit-link-row" style="display:flex;flex-direction:column;gap:4px;background:#f9f9f9;border-radius:8px;padding:8px">
+          <input class="field edit-link-title" value="${esc(lt)}" placeholder="링크 제목" style="font-size:12px;padding:7px 10px"/>
+          <div style="display:flex;gap:6px">
+            <input class="field edit-link-url" value="${esc(lu)}" placeholder="🔗 URL" style="flex:1;font-size:12px;padding:7px 10px"/>
+            ${i===0 ? `<button class="add-edit-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:16px;cursor:pointer;color:#aaa;flex-shrink:0">+</button>` : `<button class="del-edit-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:13px;cursor:pointer;color:#ccc;flex-shrink:0">✕</button>`}
+          </div>
+        </div>`;}).join('')}
+    </div>
     <div class="edit-actions">
       <button class="cancel-btn" id="edit-cancel">취소</button>
       <button class="save-btn" id="edit-save">저장</button>
     </div>`;
+
+  // setup edit link rows
+  function setupEditLinkRows() {
+    const wrap = document.getElementById('edit-links-wrap');
+    if (!wrap) return;
+    wrap.querySelectorAll('.add-edit-link-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (wrap.querySelectorAll('.edit-link-row').length >= 5) return;
+        const row = document.createElement('div');
+        row.className = 'edit-link-row';
+        row.style.cssText = 'display:flex;flex-direction:column;gap:4px;background:#f9f9f9;border-radius:8px;padding:8px';
+        row.innerHTML = `<input class="field edit-link-title" placeholder="링크 제목" style="font-size:12px;padding:7px 10px"/><div style="display:flex;gap:6px"><input class="field edit-link-url" placeholder="🔗 URL" style="flex:1;font-size:12px;padding:7px 10px"/><button class="del-edit-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:13px;cursor:pointer;color:#ccc;flex-shrink:0">✕</button></div>`;
+        row.querySelector('.del-edit-link-btn').addEventListener('click', () => row.remove());
+        wrap.appendChild(row);
+      });
+    });
+    wrap.querySelectorAll('.del-edit-link-btn').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.edit-link-row').remove());
+    });
+  }
+  setupEditLinkRows();
 
   // type selector in edit mode
   let editType = card.type;
@@ -731,7 +774,11 @@ function openViewerEdit() {
     card.tip = document.getElementById('edit-tip').value.trim();
     card.image = editImage;
     card.mapLink = document.getElementById('edit-map-link').value.trim();
-    card.link = document.getElementById('edit-link').value.trim();
+    card.links = Array.from(document.querySelectorAll('#edit-links-wrap .edit-link-row')).map(row => ({
+      title: row.querySelector('.edit-link-title')?.value.trim()||'',
+      url: row.querySelector('.edit-link-url')?.value.trim()||''
+    })).filter(l=>l.url);
+    card.link = '';
     fbSaveAll('cards', cards);
     renderGrid();
     editFileInput.remove();
@@ -765,7 +812,8 @@ function openAddCardModal() {
   document.getElementById('card-note').value = '';
   document.getElementById('card-tip').value = '';
   document.getElementById('card-map-link').value = '';
-  document.getElementById('card-link').value = '';
+  const wrap = document.getElementById('card-links-wrap');
+  if (wrap) { wrap.innerHTML = ''; wrap.appendChild(makeLinkRow('','',false)); setupLinkRows(); }
   const ms = document.getElementById('modal-stars');
   ms.innerHTML = starHTML(0, 20, 'modal-stars-inner', true);
   makeStarsInteractive(ms, () => newCardRating, v => { newCardRating = v; ms.innerHTML = starHTML(newCardRating,20,'modal-stars-inner',true); makeStarsInteractive(ms,()=>newCardRating,vv=>{newCardRating=vv;ms.innerHTML=starHTML(newCardRating,20,'modal-stars-inner',true);makeStarsInteractive(ms,()=>newCardRating,()=>{},20);},20); }, 20);
@@ -783,6 +831,40 @@ document.querySelectorAll('.type-btn').forEach(btn => {
     document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === newCardType));
   });
 });
+
+function makeLinkRow(title='', url='', removable=false) {
+  const row = document.createElement('div');
+  row.className = 'link-row';
+  row.style.cssText = 'display:flex;flex-direction:column;gap:4px;background:#f9f9f9;border-radius:8px;padding:8px;position:relative';
+  row.innerHTML = `
+    <input class="field link-title-input" placeholder="링크 제목 (예: 블로그 후기)" value="${title}" style="font-size:12px;padding:7px 10px"/>
+    <div style="display:flex;gap:6px">
+      <input class="field link-url-input" placeholder="🔗 URL" value="${url}" style="flex:1;font-size:12px;padding:7px 10px"/>
+      ${removable
+        ? `<button class="del-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:13px;cursor:pointer;color:#ccc;flex-shrink:0">✕</button>`
+        : `<button class="add-link-btn" style="background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:16px;cursor:pointer;color:#aaa;flex-shrink:0">+</button>`}
+    </div>`;
+  if (removable) {
+    row.querySelector('.del-link-btn').addEventListener('click', () => row.remove());
+  }
+  return row;
+}
+
+function setupLinkRows() {
+  const wrap = document.getElementById('card-links-wrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('.add-link-btn').forEach(btn => {
+    btn.replaceWith(btn.cloneNode(true));
+  });
+  wrap.querySelectorAll('.add-link-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (wrap.querySelectorAll('.link-row').length >= 5) return;
+      const newRow = makeLinkRow('', '', true);
+      wrap.appendChild(newRow);
+    });
+  });
+}
+setupLinkRows();
 
 document.getElementById('img-upload-area').addEventListener('click', () => document.getElementById('img-file-input').click());
 document.getElementById('img-file-input').addEventListener('change', e => {
@@ -816,7 +898,12 @@ document.getElementById('confirm-add-card').addEventListener('click', () => {
   if (!isLoggedIn()) return;
   const name = document.getElementById('card-name').value.trim();
   if (!name) return;
-  const card = { id: Date.now(), type: newCardType, name, note: document.getElementById('card-note').value.trim(), tip: document.getElementById('card-tip').value.trim(), image: newCardImage, mapLink: document.getElementById('card-map-link').value.trim(), link: document.getElementById('card-link').value.trim(), rating: newCardRating, author: currentUser ? { name: currentUser.name, emoji: currentUser.emoji, photo: currentUser.photo||null } : null };
+  const linkRows = document.querySelectorAll('#card-links-wrap .link-row');
+  const links = Array.from(linkRows).map(row => ({
+    title: row.querySelector('.link-title-input')?.value.trim() || '',
+    url: row.querySelector('.link-url-input')?.value.trim() || ''
+  })).filter(l => l.url);
+  const card = { id: Date.now(), type: newCardType, name, note: document.getElementById('card-note').value.trim(), tip: document.getElementById('card-tip').value.trim(), image: newCardImage, mapLink: document.getElementById('card-map-link').value.trim(), links, rating: newCardRating, author: currentUser ? { name: currentUser.name, emoji: currentUser.emoji, photo: currentUser.photo||null } : null };
   cards.unshift(card);
   fbSaveAll('cards', cards);
   renderGrid();
@@ -1152,8 +1239,6 @@ function renderEmojiPicker(containerId, selectedEmoji, onSelect) {
 }
 
 function initLoginUI() {
-  renderEmojiPicker('login-emoji-pick', loginSelectedEmoji, v => { loginSelectedEmoji = v; });
-
   document.getElementById('login-btn').addEventListener('click', () => {
     const name = document.getElementById('login-name').value.trim();
     const pin = document.getElementById('login-pin').value.trim();
@@ -1161,12 +1246,14 @@ function initLoginUI() {
     if (!name || !pin) { err.textContent = '이름과 PIN을 입력해주세요'; return; }
     const member = MEMBERS.find(m => m.name === name && m.pin === pin);
     if (!member) { err.textContent = '이름 또는 PIN이 올바르지 않아요'; return; }
-    // load saved profile or create new
+    // load saved profile or assign random emoji for first login
     const savedProfile = localStorage.getItem('profile_' + name);
     if (savedProfile) {
       currentUser = JSON.parse(savedProfile);
     } else {
-      currentUser = { name, emoji: loginSelectedEmoji, photo: null };
+      const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      currentUser = { name, emoji: randomEmoji, photo: null };
+      localStorage.setItem('profile_' + name, JSON.stringify(currentUser));
     }
     saveSession();
     document.getElementById('login-overlay').style.display = 'none';
@@ -1188,154 +1275,4 @@ function initLoginUI() {
 function renderHeaderProfile() {
   const area = document.getElementById('header-profile-area');
   if (!isLoggedIn()) {
-    area.innerHTML = `<button id="header-login-btn" style="background:none;border:1px solid #e0e0e0;border-radius:6px;padding:5px 12px;font-size:12px;color:#666;cursor:pointer;font-family:inherit">로그인</button>`;
-    document.getElementById('header-login-btn').addEventListener('click', () => {
-      document.getElementById('login-overlay').style.display = 'flex';
-    });
-  } else {
-    const avatar = currentUser.photo
-      ? `<img src="${currentUser.photo}">`
-      : currentUser.emoji;
-    area.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="profile-avatar" id="header-avatar">${avatar}</div>
-        <span class="profile-name" id="header-name">${esc(currentUser.name)}</span>
-        <button class="logout-btn" id="logout-btn">로그아웃</button>
-      </div>`;
-    document.getElementById('header-avatar').addEventListener('click', openProfileEdit);
-    document.getElementById('header-name').addEventListener('click', openProfileEdit);
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      currentUser = null;
-      saveSession();
-      renderHeaderProfile();
-      updateUIForAuth();
-      renderGrid(); renderMemos();
-    });
-  }
-}
-
-function updateUIForAuth() {
-  const canEdit = isLoggedIn();
-  const addBtn = document.getElementById('add-card-btn-wrap');
-  if (addBtn) addBtn.style.display = canEdit ? 'block' : 'none';
-  const saveMemo = document.getElementById('save-memo');
-  if (saveMemo) saveMemo.style.display = canEdit ? 'flex' : 'none';
-  const memoForm = document.querySelector('.form-box');
-  if (memoForm) memoForm.style.opacity = canEdit ? '1' : '0.5';
-}
-
-function avatarHTML(size, user) {
-  if (!user) return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:${size*0.55}px">👤</div>`;
-  const content = user.photo
-    ? `<img src="${user.photo}" style="width:100%;height:100%;object-fit:cover">`
-    : user.emoji;
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:${size*0.55}px;overflow:hidden;border:1px solid #eee;flex-shrink:0">${content}</div>`;
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// PROFILE EDIT
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let profileSelectedEmoji = null;
-let profileNewPhoto = null;
-
-function openProfileEdit() {
-  if (!isLoggedIn()) return;
-  profileSelectedEmoji = currentUser.emoji;
-  profileNewPhoto = currentUser.photo || null;
-
-  const preview = document.getElementById('profile-preview');
-  renderProfilePreview(preview);
-  renderEmojiPicker('profile-emoji-pick', profileSelectedEmoji, v => {
-    profileSelectedEmoji = v;
-    profileNewPhoto = null;
-    renderProfilePreview(preview);
-  });
-  document.getElementById('profile-name-input').value = currentUser.name;
-  document.getElementById('profile-overlay').style.display = 'flex';
-}
-
-function renderProfilePreview(el) {
-  el.innerHTML = profileNewPhoto
-    ? `<img src="${profileNewPhoto}" style="width:100%;height:100%;object-fit:cover">`
-    : profileSelectedEmoji;
-}
-
-document.getElementById('profile-preview').addEventListener('click', () => {
-  document.getElementById('profile-img-file').click();
-});
-document.getElementById('profile-img-file').addEventListener('change', e => {
-  const file = e.target.files[0]; if(!file) return;
-  e.target.value='';
-  const r = new FileReader();
-  r.onload = ev => {
-    const dataUrl = ev.target.result;
-    const img = new Image();
-    img.onload = () => {
-      if (Math.abs(img.width/img.height-1) > 0.02) {
-        openCropper(dataUrl, cropped => {
-          profileNewPhoto = cropped;
-          renderProfilePreview(document.getElementById('profile-preview'));
-        });
-      } else {
-        profileNewPhoto = dataUrl;
-        renderProfilePreview(document.getElementById('profile-preview'));
-      }
-    };
-    img.src = dataUrl;
-  };
-  r.readAsDataURL(file);
-});
-
-document.getElementById('close-profile').addEventListener('click', () => document.getElementById('profile-overlay').style.display='none');
-document.getElementById('cancel-profile').addEventListener('click', () => document.getElementById('profile-overlay').style.display='none');
-document.getElementById('save-profile').addEventListener('click', () => {
-  const newName = document.getElementById('profile-name-input').value.trim();
-  if (!newName) return;
-  // only allow name change if still a valid member name check by pin match - just allow name display change
-  currentUser.name = newName;
-  currentUser.emoji = profileSelectedEmoji;
-  currentUser.photo = profileNewPhoto;
-  localStorage.setItem('profile_' + currentUser.name, JSON.stringify(currentUser));
-  saveSession();
-  renderHeaderProfile();
-  document.getElementById('profile-overlay').style.display='none';
-  renderGrid(); renderMemos();
-});
-
-async function init(){
-  loadSession();
-  const saved = localStorage.getItem('rightWidth');
-  if (saved) document.getElementById('right').style.width = saved + 'px';
-  const [c,m,mc]=await Promise.all([fbLoad('cards'),fbLoad('memos'),fbLoad('memoCats')]);
-  if(c&&c.length) cards=c;
-  if(m&&m.length) memos=m;
-  if(mc&&mc.length){ memoCats=mc; nextCatId=Math.max(...mc.map(x=>x.id||0))+1; }
-  renderGrid(); renderMemos(); updateCatTrigger();
-  document.getElementById('loading').style.display='none';
-  document.getElementById('app').style.display='block';
-
-  initLoginUI();
-  renderHeaderProfile();
-
-  // Show login if not logged in and not already dismissed
-  if (!isLoggedIn()) {
-    // show login overlay on first visit, but allow guest dismiss
-    const dismissed = localStorage.getItem('guestDismissed');
-    if (!dismissed) {
-      document.getElementById('login-overlay').style.display = 'flex';
-    }
-  }
-
-  // guest dismiss tracking
-  const origGuestBtn = document.getElementById('guest-btn');
-  if (origGuestBtn) {
-    origGuestBtn.addEventListener('click', () => {
-      localStorage.setItem('guestDismissed', '1');
-    }, { once: true });
-  }
-}
-init();
-</script>
-
-</body>
-</html>
+    area.innerHTML = `<button id="header-login-btn" style="background:none;border:1px solid #e0e0e0;bo
