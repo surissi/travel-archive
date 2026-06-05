@@ -120,14 +120,14 @@ textarea.field{resize:vertical}
 .add-link-btn{background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:16px;cursor:pointer;color:#aaa;flex-shrink:0}
 .del-link-btn{background:none;border:1px solid #e0e0e0;border-radius:7px;width:32px;font-size:13px;cursor:pointer;color:#ccc;flex-shrink:0}
 
-.viewer-modal{background:#fff;border-radius:14px;overflow:hidden;width:100%;max-width:440px;box-shadow:0 12px 48px rgba(0,0,0,.2);position:relative}
+.viewer-modal{background:#fff;border-radius:14px;overflow:hidden;width:100%;max-width:440px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 48px rgba(0,0,0,.2);position:relative}
 .viewer-top-btns{position:absolute;top:12px;right:12px;z-index:10;display:flex;gap:8px}
 .viewer-icon-btn{background:rgba(0,0,0,.35);border:none;border-radius:50%;width:30px;height:30px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .viewer-icon-btn:hover{opacity:.75}
-.viewer-img-box{position:relative;height:280px;background:#f0f0f0}
+.viewer-img-box{position:relative;height:280px;background:#f0f0f0;flex-shrink:0}
 .viewer-img-box img{width:100%;height:100%;object-fit:cover}
 .viewer-no-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;opacity:.2}
-.viewer-body{padding:16px 20px 22px}
+.viewer-body{padding:16px 20px 22px;overflow-y:auto;flex:1}
 .viewer-tag{font-size:11px;color:#aaa;font-weight:500;letter-spacing:.03em}
 .viewer-name{font-size:17px;font-weight:700;color:#111;margin:5px 0 8px;line-height:1.3}
 .viewer-note{font-size:13px;color:#666;line-height:1.65}
@@ -621,18 +621,18 @@ function renderGrid() {
     }
 
     // link pills
-    // tip + links row
-    var hasAnyPill = card.tip || card.mapLink || (card.links && card.links.length);
-    if (hasAnyPill) {
+    if (card.tip) {
+      var tip = document.createElement("div");
+      tip.className = "card-tip";
+      tip.innerHTML = "💡 " + esc(card.tip).replace(/\n/g, "<br>");
+      body.appendChild(tip);
+    }
+
+    // links row
+    var hasLinks = card.mapLink || (card.links && card.links.length);
+    if (hasLinks) {
       var pillRow = document.createElement("div");
       pillRow.className = "card-links-row";
-      if (card.tip) {
-        var tipPill = document.createElement("span");
-        tipPill.style.cssText = "font-size:11px;color:#888;background:#f9f9f0;padding:2px 8px;border-radius:10px;border:1px solid #e8e8d0;cursor:pointer";
-        tipPill.textContent = "💡 팁";
-        tipPill.addEventListener("click", function(e){ e.stopPropagation(); openViewer(card.id); });
-        pillRow.appendChild(tipPill);
-      }
       if (card.mapLink) {
         var mapPill = document.createElement("a");
         mapPill.href = card.mapLink; mapPill.target = "_blank";
