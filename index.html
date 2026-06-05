@@ -282,7 +282,8 @@ textarea.field{resize:vertical}
       <span class="img-upload-label">사진 추가 (선택)</span>
     </div>
     <input type="file" id="img-file-input" accept="image/*" style="display:none"/>
-    <input class="field" id="card-name" placeholder="장소 이름" style="margin-bottom:8px"/>
+    <input class="field" id="card-name" placeholder="장소 이름" style="margin-bottom:6px"/>
+    <input class="field" id="card-name-cn" placeholder="중국어 이름 (선택)" style="margin-bottom:8px"/>
     <textarea class="field" id="card-note" placeholder="기대평" rows="3" style="margin-bottom:8px"></textarea>
     <textarea class="field" id="card-tip" placeholder="💡 팁 (가는 방법, 주의사항 등)" rows="4" style="margin-bottom:8px"></textarea>
     <input class="field" id="card-map-link" placeholder="📍 맵 링크" style="margin-bottom:8px"/>
@@ -613,6 +614,12 @@ function renderGrid() {
     name.className = "card-name";
     name.textContent = card.name;
     body.appendChild(name);
+    if (card.nameCn) {
+      var nameCn = document.createElement("div");
+      nameCn.style.cssText = "font-size:12px;color:#aaa;margin-bottom:3px;margin-top:-3px";
+      nameCn.textContent = card.nameCn;
+      body.appendChild(nameCn);
+    }
 
     if (card.note) {
       var note = document.createElement("div");
@@ -982,6 +989,12 @@ function renderViewerRead(card) {
   nameEl.className = "viewer-name";
   nameEl.textContent = card.name;
   content.appendChild(nameEl);
+  if (card.nameCn) {
+    var nameCnEl = document.createElement("div");
+    nameCnEl.style.cssText = "font-size:13px;color:#aaa;margin-top:-4px;margin-bottom:6px";
+    nameCnEl.textContent = card.nameCn;
+    content.appendChild(nameCnEl);
+  }
 
   if (card.note) {
     var noteEl = document.createElement("div");
@@ -1157,6 +1170,13 @@ function openViewerEdit() {
   nameInput.value = card.name;
   nameInput.placeholder = "장소 이름";
   content.appendChild(nameInput);
+  var nameCnInput = document.createElement("input");
+  nameCnInput.className = "edit-input-field";
+  nameCnInput.style.fontWeight = "400";
+  nameCnInput.style.fontSize = "13px";
+  nameCnInput.value = card.nameCn || "";
+  nameCnInput.placeholder = "중국어 이름 (선택)";
+  content.appendChild(nameCnInput);
 
   var noteTA = document.createElement("textarea");
   noteTA.className = "edit-textarea-field";
@@ -1220,6 +1240,7 @@ function openViewerEdit() {
     if (!name) return;
     card.type = editType;
     card.name = name;
+    card.nameCn = nameCnInput.value.trim();
     card.note = noteTA.value.trim();
     card.tip = tipTA.value.trim();
     card.image = editImageData;
@@ -1322,7 +1343,7 @@ function openAddModal() {
     b.classList.toggle("active", b.dataset.type === "restaurant");
   });
   el("img-upload-area").innerHTML = '<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';
-  el("card-name").value = ""; el("card-note").value = ""; el("card-tip").value = ""; el("card-map-link").value = "";
+  el("card-name").value = ""; el("card-name-cn").value = ""; el("card-note").value = ""; el("card-tip").value = ""; el("card-map-link").value = "";
   el("img-upload-area").style.display = "flex";
   // reset links
   var wrap = el("add-links-wrap");
@@ -1424,6 +1445,7 @@ el("confirm-add-card").addEventListener("click", function(){
   });
   var card = {
     id: Date.now(), type: newCardType, name: name,
+    nameCn: el("card-name-cn").value.trim(),
     note: el("card-note").value.trim(), tip: el("card-tip").value.trim(),
     image: newCardImage, mapLink: el("card-map-link").value.trim(),
     linkUrl: "",
