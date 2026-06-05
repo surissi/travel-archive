@@ -367,7 +367,7 @@ const MEMBERS = [
   {name:"현주", pin:"7060"},
   {name:"지원", pin:"7061"}
 ];
-const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🦋","🏎️","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🏁","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
+const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🏁","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
 const COLOR_PALETTE = ["#e05c5c","#e87c7c","#f0a0a0","#e07840","#e8a060","#f0c080","#d4a020","#e8c840","#f0e060","#208050","#40a870","#70c890","#209070","#40b890","#80d8b8","#2060a0","#4080c0","#80b0e0","#2040c0","#5070d8","#90a8f0","#6030a0","#8850c0","#b080e0","#a030a0","#c060c0","#e090e0","#c03070","#e05890","#f090b8","#d08060","#b89060","#907040","#705030","#606870","#202020"];
 const DEFAULT_CATS = [
   {id:1,name:"맛집",color:"#e07840"},{id:2,name:"카페",color:"#d4a020"},
@@ -1481,7 +1481,7 @@ el("save-memo").addEventListener("click", function(){
   var text = el("memo-text").value.trim();
   if (!text) return;
   var url = el("memo-url").value.trim();
-  memos.push({id:Date.now(), catId:selectedMemoCatId, text:text, url:url,
+  memos.unshift({id:Date.now(), catId:selectedMemoCatId, text:text, url:url,
     author: currentUser ? {name:currentUser.name,emoji:currentUser.emoji,photo:currentUser.photo||null} : null});
   fbSaveAll("memos", memos);
   renderMemoFilter();
