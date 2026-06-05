@@ -334,8 +334,7 @@ textarea.field{resize:vertical}
     </div>
     <div style="text-align:center;margin-bottom:14px">
       <div class="profile-preview" id="profile-preview-img"></div>
-      <div style="font-size:11px;color:#aaa">이모지 선택 또는 사진 업로드</div>
-      <input type="file" id="profile-img-file" accept="image/*" style="display:none"/>
+      <div style="font-size:11px;color:#aaa">이모지를 선택하세요</div>
     </div>
     <div style="font-size:12px;color:#aaa;margin-bottom:8px">이모지 선택</div>
     <div class="emoji-grid" id="profile-emoji-grid"></div>
@@ -537,8 +536,11 @@ function heartsHTML(value, size) {
 // ─── AVATAR ──────────────────────────────────────────────────────
 function avatarHTML(size, user) {
   if (!user) return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px">👤</div>';
-  var inner = user.photo ? '<img src="'+user.photo+'" style="width:100%;height:100%;object-fit:cover">' : (user.emoji || "👤");
-  return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px;overflow:hidden;border:1px solid #eee;flex-shrink:0">'+inner+'</div>';
+  // always use current profile emoji if available
+  var displayEmoji = user.emoji || "👤";
+  var profile = localStorage.getItem("profile_"+user.name);
+  if (profile) { try { var p=JSON.parse(profile); if(p.emoji) displayEmoji=p.emoji; } catch(e){} }
+  return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px;overflow:hidden;border:1px solid #eee;flex-shrink:0">'+displayEmoji+'</div>';
 }
 
 // ─── RENDER GRID ─────────────────────────────────────────────────
@@ -815,7 +817,7 @@ function renderMemos() {
       linkCard.appendChild(bar);
       // thumb or icon
       var thumbDiv = document.createElement("div");
-      thumbDiv.style.cssText = "width:56px;height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:"+pInfo.bg;
+      thumbDiv.style.cssText = "width:40px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:"+pInfo.bg;
       if (ytThumb) {
         var tImg = document.createElement("img");
         tImg.src = ytThumb;
@@ -823,20 +825,20 @@ function renderMemos() {
         thumbDiv.appendChild(tImg);
       } else {
         var iconSpan = document.createElement("div");
-        iconSpan.style.cssText = "font-size:22px;color:"+pInfo.color+";font-weight:700;font-family:sans-serif;line-height:1";
+        iconSpan.style.cssText = "font-size:16px;color:"+pInfo.color+";font-weight:700;font-family:sans-serif;line-height:1";
         iconSpan.textContent = pInfo.icon;
         thumbDiv.appendChild(iconSpan);
       }
       linkCard.appendChild(thumbDiv);
       // info
       var infoDiv = document.createElement("div");
-      infoDiv.style.cssText = "flex:1;padding:8px 10px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px";
+      infoDiv.style.cssText = "flex:1;padding:6px 8px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px";
       var platformLabel = document.createElement("div");
       platformLabel.style.cssText = "font-size:10px;color:"+pInfo.color+";font-weight:600;letter-spacing:.03em";
       platformLabel.textContent = pInfo.label;
       infoDiv.appendChild(platformLabel);
       var urlTxt = document.createElement("div");
-      urlTxt.style.cssText = "font-size:11px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+      urlTxt.style.cssText = "font-size:10px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
       urlTxt.textContent = m.url;
       infoDiv.appendChild(urlTxt);
       linkCard.appendChild(infoDiv);
@@ -1636,7 +1638,7 @@ function renderProfileArea() {
     bar.className = "profile-bar";
     var ava = document.createElement("div");
     ava.className = "profile-avatar";
-    ava.innerHTML = currentUser.photo ? '<img src="'+currentUser.photo+'">' : (currentUser.emoji || "👤");
+    ava.innerHTML = currentUser.emoji || "👤";
     ava.addEventListener("click", openProfileEdit);
     bar.appendChild(ava);
     var nameBtn = document.createElement("button");
@@ -1685,7 +1687,7 @@ el("guest-btn").addEventListener("click", function(){
 function openProfileEdit() {
   if (!isLoggedIn()) return;
   profSelectedEmoji = currentUser.emoji;
-  profNewPhoto = currentUser.photo || null;
+  profNewPhoto = null;
   renderProfilePreview();
   var grid = el("profile-emoji-grid");
   grid.innerHTML = "";
@@ -1707,23 +1709,7 @@ function renderProfilePreview() {
   var prev = el("profile-preview-img");
   prev.innerHTML = profNewPhoto ? '<img src="'+profNewPhoto+'">' : (profSelectedEmoji || "👤");
 }
-el("profile-preview-img").addEventListener("click", function(){ el("profile-img-file").click(); });
-el("profile-img-file").addEventListener("change", function(e){
-  var file = e.target.files[0]; if(!file) return;
-  e.target.value = "";
-  var reader = new FileReader();
-  reader.onload = function(ev){
-    var dataUrl = ev.target.result;
-    var img = new Image();
-    img.onload = function(){
-      if(Math.abs(img.width/img.height-1)>0.02){
-        openCropper(dataUrl, function(cropped){ profNewPhoto=cropped; renderProfilePreview(); });
-      } else { profNewPhoto=dataUrl; renderProfilePreview(); }
-    };
-    img.src=dataUrl;
-  };
-  reader.readAsDataURL(file);
-});
+
 el("close-profile").addEventListener("click", function(){ closeOverlay("profile-overlay"); });
 el("cancel-profile").addEventListener("click", function(){ closeOverlay("profile-overlay"); });
 el("save-profile").addEventListener("click", function(){
@@ -1731,14 +1717,31 @@ el("save-profile").addEventListener("click", function(){
   if (!newName) return;
   currentUser.name = newName;
   currentUser.emoji = profSelectedEmoji;
-  currentUser.photo = profNewPhoto;
+  currentUser.photo = null;
   localStorage.setItem("profile_"+newName, JSON.stringify(currentUser));
   saveSession();
   renderProfileArea();
   closeOverlay("profile-overlay");
+  // sync author emoji on all cards and memos
+  syncAuthorEmoji(currentUser.name, profSelectedEmoji);
 });
 
 // ─── INIT ─────────────────────────────────────────────────────────
+function syncAuthorEmoji(name, emoji) {
+  var changed = false;
+  cards.forEach(function(c){
+    if (c.author && c.author.name === name) { c.author.emoji = emoji; c.author.photo = null; changed = true; }
+  });
+  if (changed) fbSaveAll("cards", cards);
+  var mchanged = false;
+  memos.forEach(function(m){
+    if (m.author && m.author.name === name) { m.author.emoji = emoji; m.author.photo = null; mchanged = true; }
+  });
+  if (mchanged) fbSaveAll("memos", memos);
+  renderGrid();
+  renderMemos();
+}
+
 async function init() {
   loadSession();
   var saved = localStorage.getItem("rightWidth");
