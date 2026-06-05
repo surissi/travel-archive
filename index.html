@@ -92,7 +92,9 @@ textarea.field{resize:vertical}
 .drop-item{display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px;color:#333;cursor:pointer}
 .drop-item:hover{background:#f8f8f8}
 .memo-list{display:flex;flex-direction:column}
-.memo-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #f2f2f2}
+.memo-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid #f2f2f2;cursor:grab}
+.memo-item.dragging{opacity:.4}
+.memo-item.drag-over{border-top:2px solid #111}
 .list-tag{font-size:11px;font-weight:500;padding:3px 8px;border-radius:4px;white-space:nowrap;margin-top:1px;flex-shrink:0}
 .memo-text{font-size:13px;color:#333;line-height:1.6}
 .memo-url{font-size:11px;color:#0066cc;word-break:break-all;display:block;margin-top:4px;opacity:.8}
@@ -466,7 +468,7 @@ async function fbSaveAll(col, items) {
     var existing = await ref.get();
     existing.docs.forEach(function(d){ batch.delete(d.ref); });
     items.forEach(function(item, idx){
-      var toSave = col === "cards" ? Object.assign({}, item, {order: idx}) : item;
+      var toSave = (col === "cards" || col === "memos") ? Object.assign({}, item, {order: idx}) : item;
       batch.set(ref.doc(String(item.id)), toSave);
     });
     await batch.commit();
@@ -617,48 +619,44 @@ function renderGrid() {
       note.innerHTML = esc(card.note).replace(/\n/g, "<br>");
       body.appendChild(note);
     }
-    if (card.tip) {
-      var tip = document.createElement("div");
-      tip.className = "card-tip";
-      tip.innerHTML = "💡 " + esc(card.tip).replace(/\n/g, "<br>");
-      body.appendChild(tip);
-    }
 
     // link pills
+    // tip + links row
+    var hasAnyPill = card.tip || card.mapLink || (card.links && card.links.length);
+    if (hasAnyPill) {
+      var pillRow = document.createElement("div");
+      pillRow.className = "card-links-row";
+      if (card.tip) {
+        var tipPill = document.createElement("span");
+        tipPill.style.cssText = "font-size:11px;color:#888;background:#f9f9f0;padding:2px 8px;border-radius:10px;border:1px solid #e8e8d0;cursor:pointer";
+        tipPill.textContent = "💡 팁";
+        tipPill.addEventListener("click", function(e){ e.stopPropagation(); openViewer(card.id); });
+        pillRow.appendChild(tipPill);
+      }
+      if (card.mapLink) {
+        var mapPill = document.createElement("a");
+        mapPill.href = card.mapLink; mapPill.target = "_blank";
+        mapPill.className = "link-pill-map"; mapPill.textContent = "📍 지도";
+        mapPill.addEventListener("click", function(e){ e.stopPropagation(); });
+        pillRow.appendChild(mapPill);
+      }
+      if (card.links && card.links.length) {
+        var lPill = document.createElement("span");
+        lPill.className = "link-pill"; lPill.textContent = "🔗 링크";
+        lPill.addEventListener("click", function(e){ e.stopPropagation(); openViewer(card.id); });
+        pillRow.appendChild(lPill);
+      }
+      body.appendChild(pillRow);
+    }
+
     if (card.type === "link" && card.linkUrl) {
       var goBtn = document.createElement("a");
-      goBtn.href = card.linkUrl;
-      goBtn.target = "_blank";
-      goBtn.className = "link-pill";
-      goBtn.textContent = "🔗 열기";
+      goBtn.href = card.linkUrl; goBtn.target = "_blank";
+      goBtn.className = "link-pill"; goBtn.textContent = "🔗 열기";
       goBtn.addEventListener("click", function(e){ e.stopPropagation(); });
       var lr2 = document.createElement("div");
-      lr2.className = "card-links-row";
-      lr2.appendChild(goBtn);
+      lr2.className = "card-links-row"; lr2.appendChild(goBtn);
       body.appendChild(lr2);
-    } else {
-      var hasLinks = card.mapLink || (card.links && card.links.length);
-      if (hasLinks) {
-        var linksRow = document.createElement("div");
-        linksRow.className = "card-links-row";
-        if (card.mapLink) {
-          var mapA = document.createElement("a");
-          mapA.href = card.mapLink;
-          mapA.target = "_blank";
-          mapA.className = "link-pill-map";
-          mapA.textContent = "📍 지도";
-          mapA.addEventListener("click", function(e){ e.stopPropagation(); });
-          linksRow.appendChild(mapA);
-        }
-        if (card.links && card.links.length) {
-          var linkSpan = document.createElement("span");
-          linkSpan.className = "link-pill";
-          linkSpan.textContent = "🔗 링크";
-          linkSpan.addEventListener("click", function(e){ e.stopPropagation(); openViewer(card.id); });
-          linksRow.appendChild(linkSpan);
-        }
-        body.appendChild(linksRow);
-      }
     }
 
     // hearts
@@ -885,6 +883,39 @@ function renderMemos() {
     });
     btns.appendChild(delBtn);
     item.appendChild(btns);
+
+    // drag
+    item.setAttribute("draggable", "true");
+    item.addEventListener("dragstart", function(e){
+      if (!isLoggedIn()) { e.preventDefault(); return; }
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(m.id));
+      setTimeout(function(){ item.classList.add("dragging"); }, 0);
+    });
+    item.addEventListener("dragend", function(){
+      item.classList.remove("dragging");
+      list.querySelectorAll(".memo-item").forEach(function(x){ x.classList.remove("drag-over"); });
+    });
+    item.addEventListener("dragover", function(e){
+      e.preventDefault();
+      list.querySelectorAll(".memo-item").forEach(function(x){ x.classList.remove("drag-over"); });
+      item.classList.add("drag-over");
+    });
+    item.addEventListener("dragleave", function(){ item.classList.remove("drag-over"); });
+    item.addEventListener("drop", function(e){
+      e.preventDefault();
+      item.classList.remove("drag-over");
+      var fromId = parseInt(e.dataTransfer.getData("text/plain"));
+      var toId = m.id;
+      if (fromId === toId) return;
+      var fi = memos.findIndex(function(x){ return x.id === fromId; });
+      var ti = memos.findIndex(function(x){ return x.id === toId; });
+      if (fi === -1 || ti === -1) return;
+      var moved = memos.splice(fi, 1)[0];
+      memos.splice(ti, 0, moved);
+      fbSaveAll("memos", memos);
+      renderMemoFilter(); renderMemos();
+    });
 
     list.appendChild(item);
   });
@@ -1750,7 +1781,7 @@ async function init() {
   if (results[0] && results[0].length) {
     cards = results[0].slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
   }
-  if (results[1] && results[1].length) memos = results[1];
+  if (results[1] && results[1].length) memos = results[1].slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
   if (results[2] && results[2].length) { memoCats = results[2]; nextCatId = Math.max.apply(null, results[2].map(function(x){ return x.id||0; }))+1; }
   renderGrid(); renderMemoFilter(); renderMemos(); renderCatTrigger();
   el("loading").style.display = "none";
