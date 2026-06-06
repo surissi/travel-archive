@@ -546,15 +546,18 @@ function setupRealtimeListeners() {
       localStorage.setItem("profile_"+profile.name, JSON.stringify(profile));
       // if this is the current user, update their session
       var profileKey = profile.loginId || profile.name;
+      // update localStorage for all profiles (for avatarHTML lookup)
+      localStorage.setItem("profile_"+profileKey, JSON.stringify(profile));
       if (currentUser && (currentUser.loginId === profileKey || currentUser.name === profile.name)) {
         if (currentUser.emoji !== profile.emoji || currentUser.name !== profile.name) {
           currentUser.emoji = profile.emoji;
           currentUser.name = profile.name;
           saveSession();
           renderProfileArea();
-          renderGrid(); renderMemos();
         }
       }
+      // re-render to pick up updated emojis/names from localStorage
+      renderGrid(); renderMemos();
     });
   }, function(e){ console.error("profiles listener:", e); });
 }
@@ -622,11 +625,28 @@ function heartsHTML(value, size) {
 // ─── AVATAR ──────────────────────────────────────────────────────
 function avatarHTML(size, user) {
   if (!user) return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px">👤</div>';
-  // always use current profile emoji if available
   var displayEmoji = user.emoji || "👤";
-  var profile = localStorage.getItem("profile_"+user.name);
-  if (profile) { try { var p=JSON.parse(profile); if(p.emoji) displayEmoji=p.emoji; } catch(e){} }
+  var displayName = user.name || "";
+  // try loginId key first, then name key
+  var profileKey = user.loginId || user.name;
+  var profile = localStorage.getItem("profile_"+profileKey);
+  if (profile) {
+    try {
+      var p = JSON.parse(profile);
+      if (p.emoji) displayEmoji = p.emoji;
+      if (p.name) displayName = p.name;
+    } catch(e){}
+  }
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px;overflow:hidden;border:1px solid #eee;flex-shrink:0">'+displayEmoji+'</div>';
+}
+
+// get display name from local profile cache
+function getAuthorName(user) {
+  if (!user) return "";
+  var profileKey = user.loginId || user.name;
+  var profile = localStorage.getItem("profile_"+profileKey);
+  if (profile) { try { var p=JSON.parse(profile); if(p.name) return p.name; } catch(e){} }
+  return user.name || "";
 }
 
 // ─── RENDER GRID ─────────────────────────────────────────────────
@@ -688,7 +708,7 @@ function renderGrid() {
       var authorDiv = document.createElement("div");
       authorDiv.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:auto";
       if (isLoggedIn()) {
-        authorDiv.innerHTML = avatarHTML(14, card.author) + '<span style="font-size:10px;color:#aaa">' + esc(card.author.name) + '</span>';
+        authorDiv.innerHTML = avatarHTML(14, card.author) + '<span style="font-size:10px;color:#aaa">' + esc(getAuthorName(card.author)) + '</span>';
       } else {
         authorDiv.innerHTML = avatarHTML(16, card.author);
       }
@@ -1878,19 +1898,31 @@ el("save-profile").addEventListener("click", function(){
   renderProfileArea();
   closeOverlay("profile-overlay");
   // sync author emoji on all cards and memos
-  syncAuthorEmoji(currentUser.name, profSelectedEmoji);
+  syncAuthorEmoji(currentUser.loginId || currentUser.name, profSelectedEmoji, currentUser.name);
 });
 
 // ─── INIT ─────────────────────────────────────────────────────────
-function syncAuthorEmoji(name, emoji) {
+function syncAuthorEmoji(loginId, emoji, newName) {
   var changed = false;
   cards.forEach(function(c){
-    if (c.author && c.author.name === name) { c.author.emoji = emoji; c.author.photo = null; changed = true; }
+    if (c.author && (c.author.loginId === loginId || c.author.name === loginId || c.author.name === newName)) {
+      c.author.emoji = emoji;
+      c.author.loginId = loginId;
+      if (newName) c.author.name = newName;
+      c.author.photo = null;
+      changed = true;
+    }
   });
   if (changed) fbSaveAll("cards", cards);
   var mchanged = false;
   memos.forEach(function(m){
-    if (m.author && m.author.name === name) { m.author.emoji = emoji; m.author.photo = null; mchanged = true; }
+    if (m.author && (m.author.loginId === loginId || m.author.name === loginId || m.author.name === newName)) {
+      m.author.emoji = emoji;
+      m.author.loginId = loginId;
+      if (newName) m.author.name = newName;
+      m.author.photo = null;
+      mchanged = true;
+    }
   });
   if (mchanged) fbSaveAll("memos", memos);
   renderGrid();
