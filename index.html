@@ -409,8 +409,8 @@ const DEFAULT_CATS = [
   {id:5,name:"교통",color:"#208050"},{id:6,name:"준비물",color:"#2040c0"},
   {id:7,name:"주의사항",color:"#c03070"},{id:8,name:"기타",color:"#606870"}
 ];
-const TYPE_LABEL = {restaurant:"식당",cafe:"카페",attraction:"관광지"};
-const TYPE_ICON  = {restaurant:"🍽️",cafe:"☕",attraction:"🗺️"};
+const TYPE_LABEL = {restaurant:"식당",cafe:"카페",dessert:"디저트",attraction:"관광지",disney:"디즈니"};
+const TYPE_ICON  = {restaurant:"🍽️",cafe:"☕",dessert:"🍰",attraction:"🗺️",disney:"🏰"};
 
 function getPlatformInfo(url) {
   if (!url) return {icon:"🔗", label:"링크", color:"#607080", bg:"#f0f4f8"};
@@ -1211,6 +1211,7 @@ function openViewerEdit() {
   var card = cards.find(function(c){ return c.id === viewingCardId; });
   if (!card) return;
   el("viewer-edit-btn").style.display = "none";
+  el("viewer-tag").textContent = ""; // hide in edit mode
   editType = card.type;
   editImageData = card.image || null;
 
