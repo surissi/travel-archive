@@ -487,6 +487,20 @@ async function fbLoad(col) {
     return snap.docs.map(function(d){ return d.data(); });
   } catch(e) { return null; }
 }
+async function fbSaveProfile(name, profile) {
+  var db = window.__db; if (!db) return;
+  try {
+    await db.collection("trips").doc(TRIP_ID).collection("profiles").doc(name).set(profile);
+  } catch(e) { console.error(e); }
+}
+async function fbLoadProfile(name) {
+  var db = window.__db; if (!db) return null;
+  try {
+    var doc = await db.collection("trips").doc(TRIP_ID).collection("profiles").doc(name).get();
+    return doc.exists ? doc.data() : null;
+  } catch(e) { return null; }
+}
+
 async function fbSaveAll(col, items) {
   var db = window.__db;
   if (!db) return;
@@ -631,7 +645,11 @@ function renderGrid() {
     if (card.author) {
       var authorDiv = document.createElement("div");
       authorDiv.style.cssText = "display:inline-flex;align-items:center;gap:3px;margin-left:auto";
-      authorDiv.innerHTML = avatarHTML(14, card.author) + '<span style="font-size:10px;color:#aaa">' + esc(card.author.name) + '</span>';
+      if (isLoggedIn()) {
+        authorDiv.innerHTML = avatarHTML(14, card.author) + '<span style="font-size:10px;color:#aaa">' + esc(card.author.name) + '</span>';
+      } else {
+        authorDiv.innerHTML = avatarHTML(16, card.author);
+      }
       meta.appendChild(authorDiv);
     }
     body.appendChild(meta);
@@ -1739,20 +1757,30 @@ function renderProfileArea() {
   }
 }
 
-el("login-btn").addEventListener("click", function(){
+el("login-btn").addEventListener("click", async function(){
   var name = el("login-name").value.trim();
   var pin = el("login-pin").value.trim();
   var errEl = el("login-error");
   if (!name || !pin) { errEl.textContent = "이름과 PIN을 입력해주세요"; return; }
   var member = MEMBERS.find(function(m){ return m.name===name && m.pin===pin; });
   if (!member) { errEl.textContent = "이름 또는 PIN이 올바르지 않아요"; return; }
-  var saved = localStorage.getItem("profile_"+name);
-  if (saved) { try { currentUser = JSON.parse(saved); } catch(e){ currentUser = null; } }
-  if (!currentUser) {
-    currentUser = {name:name, emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)], photo:null};
+  el("login-btn").textContent = "로딩 중..."; el("login-btn").disabled = true;
+  // load from Firebase first, then localStorage
+  var fbProfile = await fbLoadProfile(name);
+  if (fbProfile) {
+    currentUser = fbProfile;
+    localStorage.setItem("profile_"+name, JSON.stringify(currentUser));
+  } else {
+    var saved = localStorage.getItem("profile_"+name);
+    if (saved) { try { currentUser = JSON.parse(saved); } catch(e){ currentUser = null; } }
+    if (!currentUser) {
+      currentUser = {name:name, emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)], photo:null};
+    }
+    fbSaveProfile(name, currentUser);
     localStorage.setItem("profile_"+name, JSON.stringify(currentUser));
   }
   saveSession();
+  el("login-btn").textContent = "로그인"; el("login-btn").disabled = false;
   closeOverlay("login-overlay");
   renderProfileArea(); updateUIForAuth();
 });
@@ -1800,6 +1828,7 @@ el("save-profile").addEventListener("click", function(){
   currentUser.emoji = profSelectedEmoji;
   currentUser.photo = null;
   localStorage.setItem("profile_"+newName, JSON.stringify(currentUser));
+  fbSaveProfile(newName, currentUser);
   saveSession();
   renderProfileArea();
   closeOverlay("profile-overlay");
