@@ -623,29 +623,31 @@ function heartsHTML(value, size) {
 }
 
 // ─── AVATAR ──────────────────────────────────────────────────────
+function getCurrentProfile(user) {
+  if (!user) return null;
+  // try loginId first (stable), then name
+  var keys = [];
+  if (user.loginId) keys.push(user.loginId);
+  if (user.name && user.name !== user.loginId) keys.push(user.name);
+  for (var i = 0; i < keys.length; i++) {
+    var stored = localStorage.getItem("profile_"+keys[i]);
+    if (stored) { try { return JSON.parse(stored); } catch(e){} }
+  }
+  return null;
+}
+
 function avatarHTML(size, user) {
   if (!user) return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px">👤</div>';
   var displayEmoji = user.emoji || "👤";
-  var displayName = user.name || "";
-  // try loginId key first, then name key
-  var profileKey = user.loginId || user.name;
-  var profile = localStorage.getItem("profile_"+profileKey);
-  if (profile) {
-    try {
-      var p = JSON.parse(profile);
-      if (p.emoji) displayEmoji = p.emoji;
-      if (p.name) displayName = p.name;
-    } catch(e){}
-  }
+  var p = getCurrentProfile(user);
+  if (p && p.emoji) displayEmoji = p.emoji;
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:'+(size*.55)+'px;overflow:hidden;border:1px solid #eee;flex-shrink:0">'+displayEmoji+'</div>';
 }
 
-// get display name from local profile cache
 function getAuthorName(user) {
   if (!user) return "";
-  var profileKey = user.loginId || user.name;
-  var profile = localStorage.getItem("profile_"+profileKey);
-  if (profile) { try { var p=JSON.parse(profile); if(p.name) return p.name; } catch(e){} }
+  var p = getCurrentProfile(user);
+  if (p && p.name) return p.name;
   return user.name || "";
 }
 
