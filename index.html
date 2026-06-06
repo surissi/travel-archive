@@ -390,10 +390,10 @@ try { firebase.initializeApp(firebaseConfig); window.__db = firebase.firestore()
 
 // ─── CONSTANTS ───────────────────────────────────────────────────
 const MEMBERS = [
-  {name:"예슬", pin:"0750"},
-  {name:"현주", pin:"7060"},
-  {name:"지원", pin:"7061"},
-  {name:"문숙", pin:"7062"}
+  {name:"suri", pin:"0750"},
+  {name:"joo", pin:"7060"},
+  {name:"son", pin:"7061"},
+  {name:"moon", pin:"7062"}
 ];
 const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🏁","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
 const COLOR_PALETTE = ["#e05c5c","#e87c7c","#f0a0a0","#e07840","#e8a060","#f0c080","#d4a020","#e8c840","#f0e060","#208050","#40a870","#70c890","#209070","#40b890","#80d8b8","#2060a0","#4080c0","#80b0e0","#2040c0","#5070d8","#90a8f0","#6030a0","#8850c0","#b080e0","#a030a0","#c060c0","#e090e0","#c03070","#e05890","#f090b8","#d08060","#b89060","#907040","#705030","#606870","#202020"];
@@ -515,6 +515,48 @@ async function fbSaveAll(col, items) {
     });
     await batch.commit();
   } catch(e) { console.error(e); }
+}
+
+// ── REALTIME LISTENERS ───────────────────────────────────────────
+function setupRealtimeListeners() {
+  var db = window.__db; if (!db) return;
+  var ref = db.collection("trips").doc(TRIP_ID);
+
+  // cards
+  ref.collection("cards").onSnapshot(function(snap) {
+    var data = snap.docs.map(function(d){ return d.data(); });
+    if (!data.length) return;
+    cards = data.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+    renderGrid();
+  }, function(e){ console.error("cards listener:", e); });
+
+  // memos
+  ref.collection("memos").onSnapshot(function(snap) {
+    var data = snap.docs.map(function(d){ return d.data(); });
+    if (!data.length) return;
+    memos = data.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+    renderMemoFilter(); renderMemos();
+  }, function(e){ console.error("memos listener:", e); });
+
+  // profiles — sync current user's emoji if changed on another device
+  ref.collection("profiles").onSnapshot(function(snap) {
+    snap.docs.forEach(function(d) {
+      var profile = d.data();
+      // update localStorage cache
+      localStorage.setItem("profile_"+profile.name, JSON.stringify(profile));
+      // if this is the current user, update their session
+      var profileKey = profile.loginId || profile.name;
+      if (currentUser && (currentUser.loginId === profileKey || currentUser.name === profile.name)) {
+        if (currentUser.emoji !== profile.emoji || currentUser.name !== profile.name) {
+          currentUser.emoji = profile.emoji;
+          currentUser.name = profile.name;
+          saveSession();
+          renderProfileArea();
+          renderGrid(); renderMemos();
+        }
+      }
+    });
+  }, function(e){ console.error("profiles listener:", e); });
 }
 
 // ─── HEARTS ──────────────────────────────────────────────────────
@@ -1769,6 +1811,7 @@ el("login-btn").addEventListener("click", async function(){
   var fbProfile = await fbLoadProfile(name);
   if (fbProfile) {
     currentUser = fbProfile;
+    currentUser.loginId = name;
     localStorage.setItem("profile_"+name, JSON.stringify(currentUser));
   } else {
     var saved = localStorage.getItem("profile_"+name);
@@ -1776,6 +1819,7 @@ el("login-btn").addEventListener("click", async function(){
     if (!currentUser) {
       currentUser = {name:name, emoji:EMOJIS[Math.floor(Math.random()*EMOJIS.length)], photo:null};
     }
+    currentUser.loginId = name;
     fbSaveProfile(name, currentUser);
     localStorage.setItem("profile_"+name, JSON.stringify(currentUser));
   }
@@ -1827,8 +1871,9 @@ el("save-profile").addEventListener("click", function(){
   currentUser.name = newName;
   currentUser.emoji = profSelectedEmoji;
   currentUser.photo = null;
-  localStorage.setItem("profile_"+newName, JSON.stringify(currentUser));
-  fbSaveProfile(newName, currentUser);
+  var saveKey = currentUser.loginId || newName;
+  localStorage.setItem("profile_"+saveKey, JSON.stringify(currentUser));
+  fbSaveProfile(saveKey, currentUser);
   saveSession();
   renderProfileArea();
   closeOverlay("profile-overlay");
@@ -1904,6 +1949,7 @@ async function init() {
   if (results[2] && results[2].length) { memoCats = results[2]; nextCatId = Math.max.apply(null, results[2].map(function(x){ return x.id||0; }))+1; }
   renderGrid(); renderMemoFilter(); renderMemos(); renderCatTrigger();
   if (isMobile()) switchMobilePanel("collection");
+  setupRealtimeListeners();
   el("loading").style.display = "none";
   el("app").style.display = "block";
   renderProfileArea();
