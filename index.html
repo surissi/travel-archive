@@ -474,6 +474,12 @@ function hexBg(hex) {
 }
 function getCat(id) { return memoCats.find(function(c){ return c.id === id; }); }
 function isLoggedIn() { return currentUser !== null; }
+function isAuthor(card) {
+  if (!isLoggedIn() || !card.author) return false;
+  var loginId = currentUser.loginId || currentUser.name;
+  if (loginId === "suri") return true; // admin
+  return card.author.loginId === loginId || card.author.name === currentUser.name;
+}
 function el(id) { return document.getElementById(id); }
 function openOverlay(id) { el(id).classList.add("open"); }
 function closeOverlay(id) { el(id).classList.remove("open"); }
@@ -1169,7 +1175,8 @@ function renderViewerRead(card) {
   );
 
   // delete btn (logged in only)
-  if (isLoggedIn()) {
+  var card4del = cards.find(function(c){ return c.id === viewingCardId; });
+  if (isAuthor(card4del)) {
     var delZone = document.createElement("div");
     delZone.className = "del-zone";
     var delBtn = document.createElement("button");
@@ -1369,7 +1376,8 @@ function openViewerEdit() {
   actions.appendChild(saveBtn);
   content.appendChild(actions);
 
-  if (isLoggedIn()) {
+  var card4del2 = cards.find(function(c){ return c.id === viewingCardId; });
+  if (isAuthor(card4del2)) {
     var delZone2 = document.createElement("div");
     delZone2.className = "del-zone";
     var delBtn2 = document.createElement("button");
