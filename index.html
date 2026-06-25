@@ -1512,7 +1512,7 @@ function openAddModal() {
     b.classList.toggle("active", b.dataset.type === "restaurant");
   });
   el("card-name").value = ""; el("card-name-cn").value = ""; el("card-note").value = ""; el("card-tip").value = ""; el("card-map-link").value = "";
-  newCardImages = []; renderImgSlot(0); renderImgSlot(1);
+  newCardImages = []; renderImgSlot(0); renderImgSlot(1); attachSlotClicks();
   // reset links
   var wrap = el("add-links-wrap");
   wrap.innerHTML = "";
@@ -1586,6 +1586,7 @@ function renderImgSlot(slot) {
       ev.stopPropagation();
       newCardImages.splice(slot, 1);
       renderImgSlot(0); renderImgSlot(1);
+      attachSlotClicks();
     });
   } else {
     var label = slot === 0 ? "대표 사진" : "추가 사진";
@@ -1593,21 +1594,20 @@ function renderImgSlot(slot) {
   }
 }
 
-function setupImgSlot(slot) {
-  var slotEl = el("img-upload-" + (slot + 1));
-  if (!slotEl) { console.error("slot not found:", slot); return; }
-  slotEl.addEventListener("click", function(){
-    console.log("slot " + slot + " clicked, images:", newCardImages);
-    if (newCardImages[slot]) return; // already has image, do nothing
-    currentImgSlot = slot;
-    el("img-file-input").click();
-  });
+// Use onclick property (avoids duplicate listeners on re-render)
+function attachSlotClicks() {
+  for (var i = 0; i < 2; i++) {
+    (function(slot){
+      var slotEl = el("img-upload-" + (slot + 1));
+      if (!slotEl) return;
+      slotEl.onclick = function(){
+        if (newCardImages[slot]) return;
+        currentImgSlot = slot;
+        el("img-file-input").click();
+      };
+    })(i);
+  }
 }
-setupImgSlot(0);
-setupImgSlot(1);
-// initial render so divs show the upload prompt
-renderImgSlot(0);
-renderImgSlot(1);
 
 el("img-file-input").addEventListener("change", function(e){
   var file = e.target.files[0]; if (!file) return;
@@ -1623,11 +1623,13 @@ el("img-file-input").addEventListener("change", function(e){
           newCardImages[targetSlot] = cropped;
           newCardImage = newCardImages[0] || null;
           renderImgSlot(0); renderImgSlot(1);
+          attachSlotClicks();
         });
       } else {
         newCardImages[targetSlot] = dataUrl;
         newCardImage = newCardImages[0] || null;
         renderImgSlot(0); renderImgSlot(1);
+        attachSlotClicks();
       }
     };
     img.src = dataUrl;
