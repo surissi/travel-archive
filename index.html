@@ -344,7 +344,7 @@ textarea.field{resize:vertical}
 <div class="overlay" id="add-card-overlay">
   <div class="modal">
     <div class="modal-head">
-      <span class="modal-title">장소 추가</span>
+      <span class="modal-title" id="modal-title-text">장소 추가</span>
       <button class="close-btn" id="close-add-card">✕</button>
     </div>
     <div class="type-row" id="add-type-row">
@@ -1294,233 +1294,58 @@ var editType = null;
 function openViewerEdit() {
   var card = cards.find(function(c){ return c.id === viewingCardId; });
   if (!card) return;
-  el("viewer-edit-btn").style.display = "none";
-  el("viewer-tag").textContent = ""; // hide in edit mode
-  editType = card.type;
-  editImageData = card.image || null;
-  // get current images (may be 1 or 2)
-  var editImages = [];
-  if (card.images && card.images.length) editImages = card.images.slice();
-  else if (card.image) editImages = [card.image];
 
-  // imgbox clickable
-  var imgBox = el("viewer-img-box");
-  imgBox.style.cursor = "pointer";
-  renderEditImgBoxMulti(imgBox, editImages);
+  // populate add-card modal with card data
+  el("modal-title-text") && (el("modal-title-text").textContent = "장소 수정");
 
-  // create file input
-  if (!editImgFile) {
-    editImgFile = document.createElement("input");
-    editImgFile.type = "file";
-    editImgFile.accept = "image/*";
-    editImgFile.style.display = "none";
-    document.body.appendChild(editImgFile);
+  // type
+  newCardType = card.type || "restaurant";
+  el("add-type-row").querySelectorAll(".type-btn").forEach(function(b){
+    b.classList.toggle("active", b.dataset.type === newCardType);
+  });
+
+  // images - fixed 2-slot
+  newCardImages = [null, null];
+  if (card.images && card.images.length) {
+    newCardImages[0] = card.images[0] || null;
+    newCardImages[1] = card.images[1] || null;
+  } else if (card.image) {
+    newCardImages[0] = card.image;
   }
-  editImgFile.onchange = null;
-  editImgFile.value = "";
-  editImgFile.addEventListener("change", function handler(e) {
-    editImgFile.removeEventListener("change", handler);
-    var file = e.target.files[0];
-    if (!file) return;
-    editImgFile.value = "";
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-      var dataUrl = ev.target.result;
-      var img = new Image();
-      img.onload = function() {
-        function addEditImg(src) {
-          if (editImages.length < 2) editImages.push(src);
-          editImageData = editImages[0] || null;
-          renderEditImgBoxMulti(el("viewer-img-box"), editImages);
-        }
-        if (Math.abs(img.width/img.height - 1) > 0.02) {
-          openCropper(dataUrl, addEditImg);
-        } else {
-          addEditImg(dataUrl);
-        }
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-  });
+  renderImgSlot(0); renderImgSlot(1); attachSlotClicks();
 
-  imgBox.onclick = function(e) {
-    var btn = e.target.closest('[data-action]') || e.target;
-    var action = btn.dataset.action;
-    if (action === "del-img") {
-      var idx = parseInt(btn.dataset.idx);
-      if (!isNaN(idx)) editImages.splice(idx, 1);
-      else editImages = [];
-      editImageData = editImages[0] || null;
-      renderEditImgBoxMulti(imgBox, editImages);
-      return;
-    }
-    if (editImages.length < 2) {
-      editImgFile.click();
-    }
-  };
-
-  // content
-  var content = el("viewer-content");
-  content.innerHTML = "";
-
-  // type row
-  var typeRow = document.createElement("div");
-  typeRow.className = "edit-type-row";
-  ["restaurant","cafe","dessert","attraction","disney"].forEach(function(t) {
-    var btn = document.createElement("button");
-    btn.className = "edit-type-btn" + (editType === t ? " active" : "");
-    btn.textContent = TYPE_LABEL[t];
-    btn.addEventListener("click", function() {
-      editType = t;
-      typeRow.querySelectorAll(".edit-type-btn").forEach(function(b){ b.classList.remove("active"); });
-      btn.classList.add("active");
-    });
-    typeRow.appendChild(btn);
-  });
-  content.appendChild(typeRow);
-
-  var nameInput = document.createElement("input");
-  nameInput.className = "edit-input-field";
-  nameInput.value = card.name;
-  nameInput.placeholder = "장소 이름";
-  content.appendChild(nameInput);
-  var nameCnInput = document.createElement("input");
-  nameCnInput.className = "edit-input-field";
-  nameCnInput.style.fontWeight = "400";
-  nameCnInput.style.fontSize = "13px";
-  nameCnInput.value = card.nameCn || "";
-  nameCnInput.placeholder = "중국어 이름 (선택)";
-  content.appendChild(nameCnInput);
-
-  var noteTA = document.createElement("textarea");
-  noteTA.className = "edit-textarea-field";
-  noteTA.rows = 3;
-  noteTA.placeholder = "메모";
-  noteTA.textContent = card.note || "";
-  content.appendChild(noteTA);
-
-  var tipTA = document.createElement("textarea");
-  tipTA.className = "edit-textarea-field";
-  tipTA.rows = 4;
-  tipTA.placeholder = "💡 팁";
-  tipTA.textContent = card.tip || "";
-  content.appendChild(tipTA);
-
-  var mapInput = document.createElement("input");
-  mapInput.className = "edit-input-field";
-  mapInput.style.fontWeight = "400";
-  mapInput.style.fontSize = "13px";
-  mapInput.value = card.mapLink || "";
-  mapInput.placeholder = "📍 맵 링크";
-  content.appendChild(mapInput);
+  // fields
+  el("card-name").value = card.name || "";
+  el("card-name-cn").value = card.nameCn || "";
+  el("card-note").value = card.note || "";
+  el("card-tip").value = card.tip || "";
+  el("card-map-link").value = card.mapLink || "";
 
   // links
-  var linksWrap = document.createElement("div");
-  linksWrap.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-bottom:6px";
+  var wrap = el("add-links-wrap");
+  wrap.innerHTML = "";
   var existingLinks = (card.links && card.links.length) ? card.links : [{title:"",url:""}];
   existingLinks.forEach(function(lnk, i) {
-    var t = typeof lnk === "object" ? (lnk.title || "") : "";
-    var u = typeof lnk === "object" ? (lnk.url || "") : (lnk || "");
-    linksWrap.appendChild(makeLinkPair(t, u, i > 0, linksWrap));
+    var t = typeof lnk==="object" ? (lnk.title||"") : "";
+    var u = typeof lnk==="object" ? (lnk.url||"") : (lnk||"");
+    wrap.appendChild(makeAddLinkPair(t, u, i > 0));
   });
-  content.appendChild(linksWrap);
 
-  // add link button
-  var addLinkBtn = document.createElement("button");
-  addLinkBtn.style.cssText = "background:none;border:none;font-size:12px;color:#aaa;cursor:pointer;padding:0;margin-bottom:8px;text-align:left";
-  addLinkBtn.textContent = "+ 링크 추가";
-  addLinkBtn.addEventListener("click", function(){
-    if (linksWrap.querySelectorAll(".link-pair").length >= 5) return;
-    linksWrap.appendChild(makeLinkPair("", "", true, linksWrap));
-  });
-  content.appendChild(addLinkBtn);
+  // hearts
+  newCardRating = card.rating || 0;
+  renderHearts("add-hearts", newCardRating, 20, true);
+  makeHeartsInteractive("add-hearts", function(){ return newCardRating; }, function(v){ newCardRating = v; }, 20);
 
-  // actions
-  var actions = document.createElement("div");
-  actions.className = "edit-actions";
-  var cancelBtn = document.createElement("button");
-  cancelBtn.className = "cancel-btn";
-  cancelBtn.textContent = "취소";
-  cancelBtn.addEventListener("click", function(){
-    imgBox.onclick = null;
-    imgBox.style.cursor = "";
-    renderViewerRead(card);
-  });
-  var saveBtn = document.createElement("button");
-  saveBtn.className = "save-btn";
-  saveBtn.textContent = "저장";
-  saveBtn.addEventListener("click", function(){
-    var name = nameInput.value.trim();
-    if (!name) return;
-    card.type = editType;
-    card.name = name;
-    card.nameCn = nameCnInput.value.trim();
-    card.note = noteTA.value.trim();
-    card.tip = tipTA.value.trim();
-    card.image = editImages[0] || null;
-    card.images = editImages.slice();
-    card.mapLink = mapInput.value.trim();
-    card.links = [];
-    linksWrap.querySelectorAll(".link-pair").forEach(function(pair) {
-      var ti = pair.querySelector(".link-title-input");
-      var ui = pair.querySelector(".link-url-input");
-      var u = ui ? ui.value.trim() : "";
-      if (u) card.links.push({title: ti ? ti.value.trim() : "", url: u});
-    });
-    card.link = "";
-    // preserve linkUrl for link type cards
-    fbSaveAll("cards", cards);
-    renderGrid();
-    imgBox.onclick = null;
-    imgBox.style.cursor = "";
-    renderViewerRead(card);
-  });
-  actions.appendChild(cancelBtn);
-  actions.appendChild(saveBtn);
-  content.appendChild(actions);
+  // change confirm button to save edit
+  var confirmBtn = el("confirm-add-card");
+  confirmBtn.textContent = "저장";
+  confirmBtn._editMode = true;
+  confirmBtn._editCardId = card.id;
 
-  var card4del2 = cards.find(function(c){ return c.id === viewingCardId; });
-  if (isAuthor(card4del2)) {
-    var delZone2 = document.createElement("div");
-    delZone2.className = "del-zone";
-    var delBtn2 = document.createElement("button");
-    delBtn2.className = "del-card-btn";
-    delBtn2.textContent = "🗑 장소 삭제";
-    delBtn2.addEventListener("click", function(){
-      if (confirm("이 장소를 삭제할까요?\n삭제하면 되돌릴 수 없어요.")) {
-        cards = cards.filter(function(c){ return c.id !== viewingCardId; });
-        fbSaveAll("cards", cards);
-        renderGrid();
-        imgBox.onclick = null;
-        closeOverlay("viewer-overlay");
-        viewingCardId = null;
-      }
-    });
-    delZone2.appendChild(delBtn2);
-    content.appendChild(delZone2);
-  }
+  closeOverlay("viewer-overlay");
+  openOverlay("add-card-overlay");
 }
 
-function renderEditImgBoxMulti(imgBox, images) {
-  if (!images.length) {
-    imgBox.innerHTML = '<div style="width:100%;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#bbb;pointer-events:none"><span style="font-size:32px">📷</span><span style="font-size:13px">클릭해서 사진 추가</span></div>';
-    return;
-  }
-  var html = '<div style="display:flex;gap:4px;padding:6px;background:#f0f0f0">';
-  images.forEach(function(src, i) {
-    html += '<div style="position:relative;flex:1;aspect-ratio:1;border-radius:6px;overflow:hidden;background:#fff">';
-    html += '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover">';
-    html += '<button data-action="del-img" data-idx="'+i+'" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:10px;cursor:pointer;z-index:5">✕</button>';
-    if (i === 0) html += '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.5);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px">대표</div>';
-    html += '</div>';
-  });
-  if (images.length < 2) {
-    html += '<div data-action="add-img" style="flex:1;aspect-ratio:1;border-radius:6px;background:#fff;border:1px dashed #ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;color:#bbb"><span style="font-size:22px">+</span><span style="font-size:10px">추가</span></div>';
-  }
-  html += '</div>';
-  imgBox.innerHTML = html;
-}
 
 function renderEditImgBox(imgBox, src) {
   if (src) {
@@ -1628,8 +1453,16 @@ function makeAddLinkPair(title, url, removable) {
 }
 
 el("open-add-card").addEventListener("click", openAddModal);
-el("close-add-card").addEventListener("click", function(){ closeOverlay("add-card-overlay"); });
-el("cancel-add-card").addEventListener("click", function(){ closeOverlay("add-card-overlay"); });
+function resetAddModal() {
+  var confirmBtn = el("confirm-add-card");
+  confirmBtn._editMode = false;
+  confirmBtn._editCardId = null;
+  confirmBtn.textContent = "저장";
+  el("modal-title-text") && (el("modal-title-text").textContent = "장소 추가");
+  closeOverlay("add-card-overlay");
+}
+el("close-add-card").addEventListener("click", resetAddModal);
+el("cancel-add-card").addEventListener("click", resetAddModal);
 el("add-card-overlay").addEventListener("click", function(e){ });
 
 el("add-type-row").querySelectorAll(".type-btn").forEach(function(btn){
