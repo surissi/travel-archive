@@ -569,10 +569,12 @@ async function fbLoadProfile(name) {
   } catch(e) { return null; }
 }
 
+var _skipSnapshot = {};
 async function fbSaveAll(col, items) {
   var db = window.__db;
   if (!db) return;
   try {
+    _skipSnapshot[col] = true;
     var ref = db.collection("trips").doc(TRIP_ID).collection(col);
     var batch = db.batch();
     var existing = await ref.get();
@@ -582,7 +584,9 @@ async function fbSaveAll(col, items) {
       batch.set(ref.doc(String(item.id)), toSave);
     });
     await batch.commit();
-  } catch(e) { console.error(e); }
+    // allow snapshot again after short delay
+    setTimeout(function(){ _skipSnapshot[col] = false; }, 2000);
+  } catch(e) { console.error(e); _skipSnapshot[col] = false; }
 }
 
 // ── REALTIME LISTENERS ───────────────────────────────────────────
@@ -592,6 +596,7 @@ function setupRealtimeListeners() {
 
   // cards
   ref.collection("cards").onSnapshot(function(snap) {
+    if (_skipSnapshot["cards"]) return;
     var data = snap.docs.map(function(d){ return d.data(); });
     if (!data.length) return;
     cards = data.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
@@ -600,6 +605,7 @@ function setupRealtimeListeners() {
 
   // memos
   ref.collection("memos").onSnapshot(function(snap) {
+    if (_skipSnapshot["memos"]) return;
     var data = snap.docs.map(function(d){ return d.data(); });
     if (!data.length) return;
     memos = data.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
@@ -1552,20 +1558,47 @@ el("confirm-add-card").addEventListener("click", function(){
   });
   var cleanImages = newCardImages.filter(function(x){ return !!x; });
   newCardImage = cleanImages[0] || null;
-  var card = {
-    id: Date.now(), type: newCardType, name: name,
-    nameCn: el("card-name-cn").value.trim(),
-    note: el("card-note").value.trim(), tip: el("card-tip").value.trim(),
-    image: newCardImage,
-    images: cleanImages,
-    mapLink: el("card-map-link").value.trim(),
-    linkUrl: "",
-    links: links, link: "", rating: newCardRating,
-    author: currentUser ? {name:currentUser.name,emoji:currentUser.emoji,photo:currentUser.photo||null} : null
-  };
-  cards.unshift(card);
-  fbSaveAll("cards", cards);
-  renderGrid();
+  var confirmBtn = el("confirm-add-card");
+
+  if (confirmBtn._editMode && confirmBtn._editCardId) {
+    // EDIT: update existing card
+    var existing = cards.find(function(c){ return c.id === confirmBtn._editCardId; });
+    if (existing) {
+      existing.type = newCardType;
+      existing.name = name;
+      existing.nameCn = el("card-name-cn").value.trim();
+      existing.note = el("card-note").value.trim();
+      existing.tip = el("card-tip").value.trim();
+      existing.image = newCardImage;
+      existing.images = cleanImages;
+      existing.mapLink = el("card-map-link").value.trim();
+      existing.links = links;
+      existing.link = "";
+      existing.rating = newCardRating;
+      fbSaveAll("cards", cards);
+      renderGrid();
+    }
+    confirmBtn._editMode = false;
+    confirmBtn._editCardId = null;
+    confirmBtn.textContent = "저장";
+    el("modal-title-text") && (el("modal-title-text").textContent = "장소 추가");
+  } else {
+    // ADD: create new card
+    var newCard = {
+      id: Date.now(), type: newCardType, name: name,
+      nameCn: el("card-name-cn").value.trim(),
+      note: el("card-note").value.trim(), tip: el("card-tip").value.trim(),
+      image: newCardImage,
+      images: cleanImages,
+      mapLink: el("card-map-link").value.trim(),
+      linkUrl: "",
+      links: links, link: "", rating: newCardRating,
+      author: currentUser ? {name:currentUser.name, loginId:currentUser.loginId||currentUser.name, emoji:currentUser.emoji, photo:null} : null
+    };
+    cards.unshift(newCard);
+    fbSaveAll("cards", cards);
+    renderGrid();
+  }
   closeOverlay("add-card-overlay");
 });
 
@@ -2037,10 +2070,22 @@ function renderAdminMemberList() {
         var i = parseInt(btn.dataset.idx);
         var newId = el("mid-"+i).value.trim();
         var newPin = el("mpin-"+i).value.trim();
+        var newNick = el("mnick-"+i) ? el("mnick-"+i).value.trim() : "";
         if (!newId || !newPin) return;
+        var oldId = MEMBERS[i].name;
         MEMBERS[i].name = newId;
         MEMBERS[i].pin = newPin;
         saveMembers();
+        // update profile nickname if changed
+        if (newNick) {
+          var profKey = oldId;
+          var profRaw = localStorage.getItem("profile_"+profKey);
+          var prof = profRaw ? JSON.parse(profRaw) : {name:newNick, emoji:"👤", photo:null, loginId:newId};
+          prof.name = newNick;
+          prof.loginId = newId;
+          localStorage.setItem("profile_"+newId, JSON.stringify(prof));
+          fbSaveProfile(newId, prof);
+        }
         renderAdminMemberList();
       });
     });
