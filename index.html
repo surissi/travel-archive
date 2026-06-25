@@ -1268,14 +1268,15 @@ function openViewerEdit() {
       var dataUrl = ev.target.result;
       var img = new Image();
       img.onload = function() {
+        function addEditImg(src) {
+          if (editImages.length < 2) editImages.push(src);
+          editImageData = editImages[0] || null;
+          renderEditImgBoxMulti(el("viewer-img-box"), editImages);
+        }
         if (Math.abs(img.width/img.height - 1) > 0.02) {
-          openCropper(dataUrl, function(cropped) {
-            editImageData = cropped;
-            renderEditImgBox(el("viewer-img-box"), editImageData);
-          });
+          openCropper(dataUrl, addEditImg);
         } else {
-          editImageData = dataUrl;
-          renderEditImgBox(el("viewer-img-box"), editImageData);
+          addEditImg(dataUrl);
         }
       };
       img.src = dataUrl;
@@ -1284,12 +1285,19 @@ function openViewerEdit() {
   });
 
   imgBox.onclick = function(e) {
-    if (e.target.dataset.action === "del-img") {
-      editImageData = null;
-      renderEditImgBox(imgBox, null);
+    var btn = e.target.closest('[data-action]') || e.target;
+    var action = btn.dataset.action;
+    if (action === "del-img") {
+      var idx = parseInt(btn.dataset.idx);
+      if (!isNaN(idx)) editImages.splice(idx, 1);
+      else editImages = [];
+      editImageData = editImages[0] || null;
+      renderEditImgBoxMulti(imgBox, editImages);
       return;
     }
-    editImgFile.click();
+    if (editImages.length < 2) {
+      editImgFile.click();
+    }
   };
 
   // content
