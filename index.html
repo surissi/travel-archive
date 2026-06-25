@@ -313,14 +313,15 @@ textarea.field{resize:vertical}
       <button class="type-btn" data-type="attraction">관광지</button>
       <button class="type-btn" data-type="disney">디즈니</button>
     </div>
-    <div class="img-upload-area" id="img-upload-area">
-      <span style="font-size:22px;color:#ccc">📷</span>
-      <span class="img-upload-label">사진 추가 (선택)</span>
+    <div id="img-upload-wrap" style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="img-upload-area" id="img-upload-1" style="flex:1;margin-bottom:0"></div>
+      <div class="img-upload-area" id="img-upload-2" style="flex:1;margin-bottom:0"></div>
     </div>
+    <div style="font-size:11px;color:#aaa;margin-bottom:10px;margin-top:-4px">💡 첫 번째 사진이 컬렉션 대표 이미지</div>
     <input type="file" id="img-file-input" accept="image/*" style="display:none"/>
     <input class="field" id="card-name" placeholder="장소 이름" style="margin-bottom:6px"/>
     <input class="field" id="card-name-cn" placeholder="중국어 이름 (선택)" style="margin-bottom:8px"/>
-    <textarea class="field" id="card-note" placeholder="기대평" rows="3" style="margin-bottom:8px"></textarea>
+    <textarea class="field" id="card-note" placeholder="메모" rows="3" style="margin-bottom:8px"></textarea>
     <textarea class="field" id="card-tip" placeholder="💡 팁 (가는 방법, 주의사항 등)" rows="4" style="margin-bottom:8px"></textarea>
     <input class="field" id="card-map-link" placeholder="📍 맵 링크" style="margin-bottom:8px"/>
     <div id="add-links-wrap" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
@@ -464,7 +465,8 @@ let selectedMemoCatId = null;
 let currentUser = null;
 let viewingCardId = null;
 let newCardType = "restaurant";
-let newCardImage = null;
+let newCardImage = null; // legacy (kept for compat)
+let newCardImages = []; // array of up to 2 images
 let newCardRating = 0;
 let newCatColor = "#6030a0";
 let cropCallback = null;
@@ -1097,10 +1099,27 @@ function renderViewerRead(card) {
   var imgBox = el("viewer-img-box");
   imgBox.style.cursor = "";
   imgBox.style.height = "auto";
-  if (card.image) {
-    imgBox.innerHTML = '<img src="'+card.image+'" alt="">';
-  } else {
+  // collect all images
+  var allImages = [];
+  if (card.images && card.images.length) allImages = card.images.slice();
+  else if (card.image) allImages = [card.image];
+
+  if (allImages.length === 0) {
     imgBox.innerHTML = '<div class="viewer-no-img">'+TYPE_ICON[card.type]+'</div>';
+  } else if (allImages.length === 1) {
+    imgBox.innerHTML = '<img src="'+allImages[0]+'" alt="">';
+  } else {
+    // multiple images - show with nav
+    var idx = 0;
+    function renderViewerImg() {
+      imgBox.innerHTML = '<img src="'+allImages[idx]+'" alt="">'
+        + '<button id="prev-img" style="position:absolute;top:50%;left:10px;transform:translateY(-50%);background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;z-index:5">‹</button>'
+        + '<button id="next-img" style="position:absolute;top:50%;right:10px;transform:translateY(-50%);background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;z-index:5">›</button>'
+        + '<div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.4);color:#fff;padding:2px 10px;border-radius:10px;font-size:11px;z-index:5">'+(idx+1)+' / '+allImages.length+'</div>';
+      el("prev-img").addEventListener("click", function(e){ e.stopPropagation(); idx = (idx - 1 + allImages.length) % allImages.length; renderViewerImg(); });
+      el("next-img").addEventListener("click", function(e){ e.stopPropagation(); idx = (idx + 1) % allImages.length; renderViewerImg(); });
+    }
+    renderViewerImg();
   }
 
   var content = el("viewer-content");
@@ -1219,11 +1238,15 @@ function openViewerEdit() {
   el("viewer-tag").textContent = ""; // hide in edit mode
   editType = card.type;
   editImageData = card.image || null;
+  // get current images (may be 1 or 2)
+  var editImages = [];
+  if (card.images && card.images.length) editImages = card.images.slice();
+  else if (card.image) editImages = [card.image];
 
   // imgbox clickable
   var imgBox = el("viewer-img-box");
   imgBox.style.cursor = "pointer";
-  renderEditImgBox(imgBox, editImageData);
+  renderEditImgBoxMulti(imgBox, editImages);
 
   // create file input
   if (!editImgFile) {
@@ -1305,7 +1328,7 @@ function openViewerEdit() {
   var noteTA = document.createElement("textarea");
   noteTA.className = "edit-textarea-field";
   noteTA.rows = 3;
-  noteTA.placeholder = "기대평";
+  noteTA.placeholder = "메모";
   noteTA.textContent = card.note || "";
   content.appendChild(noteTA);
 
@@ -1367,7 +1390,8 @@ function openViewerEdit() {
     card.nameCn = nameCnInput.value.trim();
     card.note = noteTA.value.trim();
     card.tip = tipTA.value.trim();
-    card.image = editImageData;
+    card.image = editImages[0] || null;
+    card.images = editImages.slice();
     card.mapLink = mapInput.value.trim();
     card.links = [];
     linksWrap.querySelectorAll(".link-pair").forEach(function(pair) {
@@ -1410,11 +1434,31 @@ function openViewerEdit() {
   }
 }
 
+function renderEditImgBoxMulti(imgBox, images) {
+  if (!images.length) {
+    imgBox.innerHTML = '<div style="width:100%;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#bbb;pointer-events:none"><span style="font-size:32px">📷</span><span style="font-size:13px">클릭해서 사진 추가</span></div>';
+    return;
+  }
+  var html = '<div style="display:flex;gap:4px;padding:6px;background:#f0f0f0">';
+  images.forEach(function(src, i) {
+    html += '<div style="position:relative;flex:1;aspect-ratio:1;border-radius:6px;overflow:hidden;background:#fff">';
+    html += '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover">';
+    html += '<button data-action="del-img" data-idx="'+i+'" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:10px;cursor:pointer;z-index:5">✕</button>';
+    if (i === 0) html += '<div style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.5);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px">대표</div>';
+    html += '</div>';
+  });
+  if (images.length < 2) {
+    html += '<div data-action="add-img" style="flex:1;aspect-ratio:1;border-radius:6px;background:#fff;border:1px dashed #ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;color:#bbb"><span style="font-size:22px">+</span><span style="font-size:10px">추가</span></div>';
+  }
+  html += '</div>';
+  imgBox.innerHTML = html;
+}
+
 function renderEditImgBox(imgBox, src) {
   if (src) {
-    imgBox.innerHTML = '<img src="'+src+'" alt="" style="width:100%;height:100%;object-fit:cover"><button data-action="del-img" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.45);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;z-index:5">✕ 사진 삭제</button>';
+    imgBox.innerHTML = '<img src="'+src+'" alt="" style="width:100%;height:auto;max-height:360px;object-fit:contain;display:block"><button data-action="del-img" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.45);border:none;color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;z-index:5">✕ 사진 삭제</button>';
   } else {
-    imgBox.innerHTML = '<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#bbb;pointer-events:none"><span style="font-size:32px">📷</span><span style="font-size:13px">클릭해서 사진 추가</span></div>';
+    imgBox.innerHTML = '<div style="width:100%;height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#bbb;pointer-events:none"><span style="font-size:32px">📷</span><span style="font-size:13px">클릭해서 사진 추가</span></div>';
   }
 }
 
@@ -1469,7 +1513,7 @@ function openAddModal() {
   });
   el("img-upload-area").innerHTML = '<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';
   el("card-name").value = ""; el("card-name-cn").value = ""; el("card-note").value = ""; el("card-tip").value = ""; el("card-map-link").value = "";
-  el("img-upload-area").style.display = "flex";
+  newCardImages = []; renderImgSlot(0); renderImgSlot(1);
   // reset links
   var wrap = el("add-links-wrap");
   wrap.innerHTML = "";
@@ -1531,10 +1575,39 @@ el("add-type-row").querySelectorAll(".type-btn").forEach(function(btn){
 
 
 
-el("img-upload-area").addEventListener("click", function(){ el("img-file-input").click(); });
+var currentImgSlot = 0;
+
+function renderImgSlot(slot) {
+  var slotEl = el("img-upload-" + (slot + 1));
+  var src = newCardImages[slot];
+  if (src) {
+    slotEl.innerHTML = '<img src="'+src+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"><button data-clear="'+slot+'" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer">✕</button>';
+    var clearBtn = slotEl.querySelector("[data-clear]");
+    if (clearBtn) clearBtn.addEventListener("click", function(ev){
+      ev.stopPropagation();
+      newCardImages.splice(slot, 1);
+      renderImgSlot(0); renderImgSlot(1);
+    });
+  } else {
+    var label = slot === 0 ? "대표 사진" : "추가 사진";
+    slotEl.innerHTML = '<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">'+label+'</span>';
+  }
+}
+
+function setupImgSlot(slot) {
+  el("img-upload-" + (slot + 1)).addEventListener("click", function(){
+    if (newCardImages[slot]) return; // already has image, do nothing
+    currentImgSlot = slot;
+    el("img-file-input").click();
+  });
+}
+setupImgSlot(0);
+setupImgSlot(1);
+
 el("img-file-input").addEventListener("change", function(e){
   var file = e.target.files[0]; if (!file) return;
   e.target.value = "";
+  var targetSlot = currentImgSlot;
   var reader = new FileReader();
   reader.onload = function(ev) {
     var dataUrl = ev.target.result;
@@ -1542,14 +1615,14 @@ el("img-file-input").addEventListener("change", function(e){
     img.onload = function(){
       if (Math.abs(img.width/img.height-1) > 0.02) {
         openCropper(dataUrl, function(cropped){
-          newCardImage = cropped;
-          el("img-upload-area").innerHTML = '<img src="'+cropped+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"><button id="img-clear" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px">✕</button>';
-          el("img-clear").addEventListener("click",function(ev2){ev2.stopPropagation();newCardImage=null;el("img-upload-area").innerHTML='<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';});
+          newCardImages[targetSlot] = cropped;
+          newCardImage = newCardImages[0] || null;
+          renderImgSlot(0); renderImgSlot(1);
         });
       } else {
-        newCardImage = dataUrl;
-        el("img-upload-area").innerHTML = '<img src="'+dataUrl+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"><button id="img-clear" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px">✕</button>';
-        el("img-clear").addEventListener("click",function(ev2){ev2.stopPropagation();newCardImage=null;el("img-upload-area").innerHTML='<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';});
+        newCardImages[targetSlot] = dataUrl;
+        newCardImage = newCardImages[0] || null;
+        renderImgSlot(0); renderImgSlot(1);
       }
     };
     img.src = dataUrl;
@@ -1568,11 +1641,14 @@ el("confirm-add-card").addEventListener("click", function(){
     var u = ui ? ui.value.trim() : "";
     if (u) links.push({title: ti ? ti.value.trim() : "", url: u});
   });
+  newCardImage = newCardImages[0] || null;
   var card = {
     id: Date.now(), type: newCardType, name: name,
     nameCn: el("card-name-cn").value.trim(),
     note: el("card-note").value.trim(), tip: el("card-tip").value.trim(),
-    image: newCardImage, mapLink: el("card-map-link").value.trim(),
+    image: newCardImage,
+    images: newCardImages.slice(),
+    mapLink: el("card-map-link").value.trim(),
     linkUrl: "",
     links: links, link: "", rating: newCardRating,
     author: currentUser ? {name:currentUser.name,emoji:currentUser.emoji,photo:currentUser.photo||null} : null
