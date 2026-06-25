@@ -181,23 +181,7 @@ textarea.field{resize:vertical}
 .cropper-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
 .cropper-head{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:2px}
 .crop-btns{display:flex;gap:8px;justify-content:flex-end;width:100%}
-/* admin */
-.admin-btn{background:none;border:none;color:#ccc;cursor:pointer;padding:4px;font-size:16px;line-height:1;display:none}
-.admin-btn:hover{color:#888}
-.admin-modal{background:#fff;border-radius:14px;padding:24px;width:100%;max-width:460px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.14)}
-.admin-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.admin-section-title{font-size:11px;font-weight:600;color:#aaa;letter-spacing:.05em;text-transform:uppercase;margin:14px 0 8px}
-.member-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f5f5f5}
-.member-avatar{width:32px;height:32px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.member-info{flex:1;min-width:0}
-.member-loginid{font-size:13px;font-weight:600;color:#111}
-.member-nick{font-size:11px;color:#aaa;margin-top:1px}
-.member-pin{font-size:11px;color:#bbb;font-family:monospace}
-.admin-edit-row{display:flex;gap:6px;align-items:center;margin-top:4px}
-.admin-small-input{padding:5px 8px;border-radius:6px;border:1px solid #e0e0e0;font-size:12px;outline:none;font-family:inherit}
-.admin-save-btn{padding:5px 10px;border-radius:6px;border:none;background:#111;color:#fff;font-size:11px;cursor:pointer;white-space:nowrap}
-.admin-del-btn{padding:5px 8px;border-radius:6px;border:none;background:#fee;color:#e05c5c;font-size:11px;cursor:pointer}
-.add-member-row{display:flex;flex-direction:column;gap:6px;background:#f9f9f9;border:1px solid #ebebeb;border-radius:10px;padding:12px;margin-top:10px}
+
 
 /* ── MOBILE ── */
 #mobile-tabs{display:none}
@@ -253,7 +237,6 @@ textarea.field{resize:vertical}
       <div id="app-title">💗 여행 컬렉션</div>
       <div id="header-right">
         <div id="add-card-wrap"><button class="add-btn" id="open-add-card">+ 장소 추가</button></div>
-        <button class="admin-btn" id="open-admin" title="관리자 메뉴">⚙️</button>
         <div id="profile-area"></div>
       </div>
     </div>
@@ -298,29 +281,6 @@ textarea.field{resize:vertical}
     </div>
   </div>
 
-</div>
-
-<!-- ADMIN OVERLAY -->
-<div class="overlay" id="admin-overlay">
-  <div class="admin-modal">
-    <div class="admin-modal-head">
-      <span style="font-size:15px;font-weight:600">⚙️ 관리자 메뉴</span>
-      <button class="close-btn" id="close-admin">✕</button>
-    </div>
-    <div style="overflow-y:auto;flex:1">
-      <div class="admin-section-title">멤버 관리</div>
-      <div id="admin-member-list"></div>
-      <div class="admin-section-title">새 멤버 추가</div>
-      <div class="add-member-row">
-        <div style="display:flex;gap:6px">
-          <input class="admin-small-input" id="new-member-id" placeholder="로그인 ID" style="flex:1"/>
-          <input class="admin-small-input" id="new-member-pin" placeholder="PIN (4자리)" style="width:90px" maxlength="4"/>
-        </div>
-        <input class="admin-small-input" id="new-member-nick" placeholder="닉네임 (선택)" style="width:100%"/>
-        <button class="admin-save-btn" id="add-member-btn" style="align-self:flex-end;padding:7px 16px">+ 추가</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- VIEWER OVERLAY -->
@@ -443,7 +403,7 @@ window.__db = null;
 try { firebase.initializeApp(firebaseConfig); window.__db = firebase.firestore(); } catch(e) { console.error(e); }
 
 // ─── CONSTANTS ───────────────────────────────────────────────────
-var MEMBERS = [
+const MEMBERS = [
   {name:"suri", pin:"0750"},
   {name:"joo", pin:"7060"},
   {name:"son", pin:"7061"},
@@ -455,7 +415,6 @@ var MEMBERS = [
   if (saved) { try { MEMBERS = JSON.parse(saved); } catch(e){} }
 })();
 function saveMembers() { localStorage.setItem("travelMembers", JSON.stringify(MEMBERS)); }
-function isAdmin() { return currentUser && (currentUser.loginId === "suri" || currentUser.name === "suri"); }
 const EMOJIS = ["🐶","🐱","🐻","🐼","🦊","🐰","🦁","🐤","🐳","🍀","🍄","🌷","🌻","🌸","🪷","⭐","🍏","🍇","🍊","🍉","🏁","🥑","🍭","🍰","🍥","☕","🍵","🎀"];
 const COLOR_PALETTE = ["#e05c5c","#e87c7c","#f0a0a0","#e07840","#e8a060","#f0c080","#d4a020","#e8c840","#f0e060","#208050","#40a870","#70c890","#209070","#40b890","#80d8b8","#2060a0","#4080c0","#80b0e0","#2040c0","#5070d8","#90a8f0","#6030a0","#8850c0","#b080e0","#a030a0","#c060c0","#e090e0","#c03070","#e05890","#f090b8","#d08060","#b89060","#907040","#705030","#606870","#202020"];
 const DEFAULT_CATS = [
@@ -1507,8 +1466,8 @@ function attachSlotClicks() {
       if (!slotEl) return;
       var fileInput = el("img-file-input-" + (slot + 1));
       slotEl.onclick = function(e){
+        // if clear button clicked, handle in renderImgSlot
         if (e.target.dataset.clear !== undefined) return;
-        if (newCardImages[slot]) return;
         if (fileInput) fileInput.click();
       };
       if (fileInput) {
@@ -1842,9 +1801,6 @@ function updateUIForAuth() {
   el("memo-form").style.opacity = isLoggedIn() ? "1" : "0.5";
 }
 function renderProfileArea() {
-  // show/hide admin button
-  var adminBtn = el("open-admin");
-  if (adminBtn) adminBtn.style.display = isAdmin() ? "block" : "none";
   var area = el("profile-area");
   if (!isLoggedIn()) {
     area.innerHTML = '<button id="header-login-btn" style="background:none;border:1px solid #e0e0e0;border-radius:6px;padding:5px 12px;font-size:12px;color:#666;cursor:pointer">로그인</button>';
@@ -2023,100 +1979,6 @@ window.addEventListener("resize", function(){
     var activePanel = document.querySelector(".mobile-tab.active");
     if (activePanel) switchMobilePanel(activePanel.dataset.panel);
   }
-});
-
-// ── ADMIN ───────────────────────────────────────────────────────
-function renderAdminMemberList() {
-  var list = el("admin-member-list");
-  list.innerHTML = "";
-  MEMBERS.forEach(function(m, idx) {
-    var row = document.createElement("div");
-    row.className = "member-row";
-
-    // avatar
-    var ava = document.createElement("div");
-    ava.className = "member-avatar";
-    var pData = localStorage.getItem("profile_"+m.name);
-    var pEmoji = "👤";
-    if (pData) { try { var p=JSON.parse(pData); if(p.emoji) pEmoji=p.emoji; } catch(e){} }
-    ava.textContent = pEmoji;
-    row.appendChild(ava);
-
-    // info + edit
-    var info = document.createElement("div");
-    info.className = "member-info";
-    info.innerHTML = '<div class="member-loginid">'+esc(m.name)+'</div>'
-      + '<div style="display:flex;gap:10px;margin-top:2px">'
-      + '<span class="member-pin">PIN: '+esc(m.pin)+'</span>'
-      + '</div>';
-
-    // edit fields
-    var editArea = document.createElement("div");
-    editArea.style.marginTop = "6px";
-    editArea.innerHTML = '<div style="display:flex;gap:4px;flex-wrap:wrap">'
-      + '<input class="admin-small-input" value="'+esc(m.name)+'" placeholder="로그인 ID" style="width:90px" id="mid-'+idx+'">'
-      + '<input class="admin-small-input" value="'+esc(m.pin)+'" placeholder="PIN" style="width:70px;font-family:monospace" maxlength="4" id="mpin-'+idx+'">'
-      + '<button class="admin-save-btn" data-idx="'+idx+'">저장</button>'
-      + (m.name !== "suri" ? '<button class="admin-del-btn" data-delidx="'+idx+'">삭제</button>' : '')
-      + '</div>';
-
-    editArea.querySelectorAll(".admin-save-btn[data-idx]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var i = parseInt(btn.dataset.idx);
-        var newId = el("mid-"+i).value.trim();
-        var newPin = el("mpin-"+i).value.trim();
-        var newNick = el("mnick-"+i) ? el("mnick-"+i).value.trim() : "";
-        if (!newId || !newPin) return;
-        var oldId = MEMBERS[i].name;
-        MEMBERS[i].name = newId;
-        MEMBERS[i].pin = newPin;
-        saveMembers();
-        // update profile nickname if changed
-        if (newNick) {
-          var profKey = oldId;
-          var profRaw = localStorage.getItem("profile_"+profKey);
-          var prof = profRaw ? JSON.parse(profRaw) : {name:newNick, emoji:"👤", photo:null, loginId:newId};
-          prof.name = newNick;
-          prof.loginId = newId;
-          localStorage.setItem("profile_"+newId, JSON.stringify(prof));
-          fbSaveProfile(newId, prof);
-        }
-        renderAdminMemberList();
-      });
-    });
-    editArea.querySelectorAll(".admin-del-btn[data-delidx]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var i = parseInt(btn.dataset.delidx);
-        if (confirm(MEMBERS[i].name + " 멤버를 삭제할까요?")) {
-          MEMBERS.splice(i, 1);
-          saveMembers();
-          renderAdminMemberList();
-        }
-      });
-    });
-
-    info.appendChild(editArea);
-    row.appendChild(info);
-    list.appendChild(row);
-  });
-}
-
-el("open-admin").addEventListener("click", function() {
-  renderAdminMemberList();
-  openOverlay("admin-overlay");
-});
-el("close-admin").addEventListener("click", function() { closeOverlay("admin-overlay"); });
-el("admin-overlay").addEventListener("click", function(e) { if(e.target===el("admin-overlay")) closeOverlay("admin-overlay"); });
-
-el("add-member-btn").addEventListener("click", function() {
-  var id = el("new-member-id").value.trim();
-  var pin = el("new-member-pin").value.trim();
-  if (!id || !pin) { alert("ID와 PIN을 입력해주세요"); return; }
-  if (MEMBERS.find(function(m){ return m.name===id; })) { alert("이미 존재하는 ID예요"); return; }
-  MEMBERS.push({name:id, pin:pin});
-  saveMembers();
-  el("new-member-id").value=""; el("new-member-pin").value=""; el("new-member-nick").value="";
-  renderAdminMemberList();
 });
 
 async function init() {
