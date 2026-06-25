@@ -1511,7 +1511,6 @@ function openAddModal() {
   el("add-type-row").querySelectorAll(".type-btn").forEach(function(b){
     b.classList.toggle("active", b.dataset.type === "restaurant");
   });
-  el("img-upload-area").innerHTML = '<span style="font-size:22px;color:#ccc">📷</span><span class="img-upload-label">사진 추가 (선택)</span>';
   el("card-name").value = ""; el("card-name-cn").value = ""; el("card-note").value = ""; el("card-tip").value = ""; el("card-map-link").value = "";
   newCardImages = []; renderImgSlot(0); renderImgSlot(1);
   // reset links
