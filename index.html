@@ -513,6 +513,7 @@ let activeCat = "all";
 let selectedMemoCatId = null;
 let currentUser = null;
 let viewingCardId = null;
+let editingCardId = null;
 let newCardType = "restaurant";
 let newCardImage = null; // legacy (kept for compat)
 let newCardImages = []; // array of up to 2 images
@@ -1342,11 +1343,10 @@ function openViewerEdit() {
   renderHearts("add-hearts", newCardRating, 20, true);
   makeHeartsInteractive("add-hearts", function(){ return newCardRating; }, function(v){ newCardRating = v; }, 20);
 
-  // change confirm button to save edit
-  var confirmBtn = el("confirm-add-card");
-  confirmBtn.textContent = "저장";
-  confirmBtn._editMode = true;
-  confirmBtn._editCardId = card.id;
+  // set edit mode via module variable
+  editingCardId = card.id;
+  el("modal-title-text") && (el("modal-title-text").textContent = "장소 수정");
+  el("confirm-add-card").textContent = "수정 완료";
 
   closeOverlay("viewer-overlay");
   openOverlay("add-card-overlay");
@@ -1460,10 +1460,8 @@ function makeAddLinkPair(title, url, removable) {
 
 el("open-add-card").addEventListener("click", openAddModal);
 function resetAddModal() {
-  var confirmBtn = el("confirm-add-card");
-  confirmBtn._editMode = false;
-  confirmBtn._editCardId = null;
-  confirmBtn.textContent = "저장";
+  editingCardId = null;
+  el("confirm-add-card").textContent = "저장";
   el("modal-title-text") && (el("modal-title-text").textContent = "장소 추가");
   closeOverlay("add-card-overlay");
 }
@@ -1558,11 +1556,9 @@ el("confirm-add-card").addEventListener("click", function(){
   });
   var cleanImages = newCardImages.filter(function(x){ return !!x; });
   newCardImage = cleanImages[0] || null;
-  var confirmBtn = el("confirm-add-card");
-
-  if (confirmBtn._editMode && confirmBtn._editCardId) {
-    // EDIT: update existing card
-    var existing = cards.find(function(c){ return c.id === confirmBtn._editCardId; });
+  if (editingCardId !== null) {
+    // EDIT MODE: update existing card
+    var existing = cards.find(function(c){ return c.id === editingCardId; });
     if (existing) {
       existing.type = newCardType;
       existing.name = name;
@@ -1578,12 +1574,9 @@ el("confirm-add-card").addEventListener("click", function(){
       fbSaveAll("cards", cards);
       renderGrid();
     }
-    confirmBtn._editMode = false;
-    confirmBtn._editCardId = null;
-    confirmBtn.textContent = "저장";
-    el("modal-title-text") && (el("modal-title-text").textContent = "장소 추가");
+    editingCardId = null;
   } else {
-    // ADD: create new card
+    // ADD MODE: create new card
     var newCard = {
       id: Date.now(), type: newCardType, name: name,
       nameCn: el("card-name-cn").value.trim(),
@@ -1599,6 +1592,8 @@ el("confirm-add-card").addEventListener("click", function(){
     fbSaveAll("cards", cards);
     renderGrid();
   }
+  el("modal-title-text") && (el("modal-title-text").textContent = "장소 추가");
+  el("confirm-add-card").textContent = "저장";
   closeOverlay("add-card-overlay");
 });
 
