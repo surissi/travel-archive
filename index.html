@@ -188,7 +188,9 @@ textarea.field{resize:vertical}
 .mobile-tab.active{color:#111;border-bottom-color:#111}
 
 @media(max-width:768px){
-  .overlay{align-items:flex-start;padding:12px}
+  .overlay{align-items:flex-start;padding:12px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #crop-overlay .modal{max-width:100% !important}
+  #crop-canvas, #crop-cont img{max-width:100% !important;height:auto !important}
   .viewer-modal{max-height:none;border-radius:12px}
   .viewer-body{max-height:none;overflow-y:visible}
   #split{flex-direction:column;height:auto;overflow:visible}
@@ -1646,10 +1648,10 @@ function openCropper(src, cb) {
     var cropX=(W-Math.min(W,H))/2, cropY=(H-Math.min(W,H))/2, cropS=Math.min(W,H);
     var scale=DISP/Math.max(W,H);
     var canW=W*scale, canH=H*scale;
-    wrap.innerHTML = '<div class="cropper-head"><span style="font-weight:600;font-size:14px">사진 크롭</span><span style="font-size:12px;color:#888">정사각형으로 조정</span></div>'
-      +'<div style="position:relative;display:inline-block;user-select:none" id="crop-cont">'
-      +'<img src="'+src+'" style="display:block;width:'+canW+'px;height:'+canH+'px">'
-      +'<canvas id="crop-canvas" style="position:absolute;top:0;left:0;width:'+canW+'px;height:'+canH+'px"></canvas>'
+    wrap.innerHTML = '<div class="cropper-head"><span style="font-weight:600;font-size:14px">사진 크롭</span><span style="font-size:12px;color:#888">드래그해서 조정</span></div>'
+      +'<div style="position:relative;display:inline-block;user-select:none;touch-action:none;max-width:100%" id="crop-cont">'
+      +'<img src="'+src+'" style="display:block;width:'+canW+'px;height:'+canH+'px;max-width:100%;pointer-events:none">'
+      +'<canvas id="crop-canvas" style="position:absolute;top:0;left:0;width:'+canW+'px;height:'+canH+'px;max-width:100%;touch-action:none"></canvas>'
       +'</div>'
       +'<div class="crop-btns"><button class="cancel-btn" id="crop-cancel">취소</button><button class="save-btn" id="crop-done">크롭 완료</button></div>';
     var canvas=el("crop-canvas"); canvas.width=canW; canvas.height=canH;
@@ -1664,21 +1666,30 @@ function openCropper(src, cb) {
     }
     draw();
     var drag=null;
-    canvas.addEventListener("mousedown",function(e){
-      var r=canvas.getBoundingClientRect(),h=20/scale;
-      var mx=(e.clientX-r.left)/scale,my=(e.clientY-r.top)/scale;
-      var cx=cropX,cy=cropY,cs=cropS;
+    function getPos(e) {
+      var r = canvas.getBoundingClientRect();
+      var src = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
+      return {x:(src.clientX-r.left)/scale, y:(src.clientY-r.top)/scale};
+    }
+    function onStart(e){
+      e.preventDefault();
+      var p = getPos(e), h = 20/scale;
+      var cx=cropX, cy=cropY, cs=cropS;
+      var mx=p.x, my=p.y;
       if(Math.abs(mx-cx)<h&&Math.abs(my-cy)<h) drag={type:"tl",ox:mx,oy:my,cx:cx,cy:cy,cs:cs};
       else if(Math.abs(mx-(cx+cs))<h&&Math.abs(my-cy)<h) drag={type:"tr",ox:mx,oy:my,cx:cx,cy:cy,cs:cs};
       else if(Math.abs(mx-cx)<h&&Math.abs(my-(cy+cs))<h) drag={type:"bl",ox:mx,oy:my,cx:cx,cy:cy,cs:cs};
       else if(Math.abs(mx-(cx+cs))<h&&Math.abs(my-(cy+cs))<h) drag={type:"br",ox:mx,oy:my,cx:cx,cy:cy,cs:cs};
       else if(mx>cx&&mx<cx+cs&&my>cy&&my<cy+cs) drag={type:"move",ox:mx,oy:my,cx:cx,cy:cy,cs:cs};
-    });
+    }
+    canvas.addEventListener("mousedown", onStart);
+    canvas.addEventListener("touchstart", onStart, {passive:false});
+
     function onMove(e){
       if(!drag) return;
-      var r=canvas.getBoundingClientRect();
-      var mx=(e.clientX-r.left)/scale,my=(e.clientY-r.top)/scale;
-      var dx=mx-drag.ox,dy=my-drag.oy,nx=drag.cx,ny=drag.cy,ns=drag.cs;
+      e.preventDefault();
+      var p = getPos(e);
+      var dx=p.x-drag.ox, dy=p.y-drag.oy, nx=drag.cx, ny=drag.cy, ns=drag.cs;
       if(drag.type==="move"){nx=Math.max(0,Math.min(W-drag.cs,drag.cx+dx));ny=Math.max(0,Math.min(H-drag.cs,drag.cy+dy));}
       else if(drag.type==="br"){ns=Math.max(40,Math.min(W-drag.cx,H-drag.cy,drag.cs+dx,drag.cs+dy));}
       else if(drag.type==="tl"){var d2=Math.max(dx,dy);ns=Math.max(40,drag.cs-d2);var dd=drag.cs-ns;nx=Math.max(0,drag.cx+dd);ny=Math.max(0,drag.cy+dd);}
@@ -1689,9 +1700,17 @@ function openCropper(src, cb) {
     function onUp(){drag=null;}
     document.addEventListener("mousemove",onMove);
     document.addEventListener("mouseup",onUp);
-    el("crop-cancel").addEventListener("click",function(){ document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp); closeOverlay("crop-overlay"); cropCallback=null; });
+    document.addEventListener("touchmove",onMove,{passive:false});
+    document.addEventListener("touchend",onUp);
+    function cleanupListeners() {
+      document.removeEventListener("mousemove",onMove);
+      document.removeEventListener("mouseup",onUp);
+      document.removeEventListener("touchmove",onMove);
+      document.removeEventListener("touchend",onUp);
+    }
+    el("crop-cancel").addEventListener("click",function(){ cleanupListeners(); closeOverlay("crop-overlay"); cropCallback=null; });
     el("crop-done").addEventListener("click",function(){
-      document.removeEventListener("mousemove",onMove); document.removeEventListener("mouseup",onUp);
+      cleanupListeners();
       var out=document.createElement("canvas"); out.width=400; out.height=400;
       out.getContext("2d").drawImage(img,cropX,cropY,cropS,cropS,0,0,400,400);
       closeOverlay("crop-overlay");
