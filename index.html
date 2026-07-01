@@ -969,6 +969,7 @@ function renderMemos() {
     mid.style.cssText = "flex:1;min-width:0";
     var txt = document.createElement("div");
     txt.className = "memo-text";
+    txt.style.whiteSpace = "pre-wrap";
     txt.textContent = m.text;
     mid.appendChild(txt);
     if (m.url) {
