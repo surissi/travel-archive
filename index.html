@@ -557,6 +557,8 @@ function setupRealtimeListeners() {
   // cards
   ref.collection("cards").onSnapshot(function(snap) {
     if (_skipSnapshot["cards"]) return;
+    // don't update if add/edit modal is open
+    if (el("add-card-overlay") && el("add-card-overlay").classList.contains("open")) return;
     var data = snap.docs.map(function(d){ return d.data(); });
     if (!data.length) return;
     cards = data.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
